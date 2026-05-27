@@ -54,6 +54,9 @@ class ConfigDrivenLiteLLMAdapter:
 
     def next_response(self, request: LLMRequest) -> LLMResponse:
         if len(self._messages) == 1:
+            for turn in request.history:
+                if turn.role in ("user", "assistant"):
+                    self._messages.append({"role": turn.role, "content": turn.content})
             self._messages.append({"role": "user", "content": request.task})
         self._append_tool_messages(request.messages)
         return self._complete_turn()

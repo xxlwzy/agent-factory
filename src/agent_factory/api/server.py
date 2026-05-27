@@ -8,6 +8,8 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from agent_factory.api.store import WorkspaceStore
+from agent_factory.runtime.approvals import ApprovalStore
+from agent_factory.runtime.session_store import ChatSessionStore
 
 
 def create_handler_class(
@@ -63,6 +65,34 @@ def create_handler_class(
                     if run_id:
                         self._send_json(store.read_run(run_id))
                         return
+                if path.startswith("/api/chat/sessions/"):
+                    session_id = path.removeprefix("/api/chat/sessions/").strip("/")
+                    if session_id:
+                        session = ChatSessionStore(workspace).load(session_id)
+                        self._send_json(
+                            {
+                                "session_id": session.session_id,
+                                "turns": session.turns,
+                            }
+                        )
+                        return
+                if path == "/api/approvals/pending":
+                    pending = ApprovalStore(workspace).list_pending()
+                    self._send_json(
+                        [
+                            {
+                                "approval_id": record.approval_id,
+                                "session_id": record.session_id,
+                                "run_id": record.run_id,
+                                "agent_name": record.agent_name,
+                                "task": record.task,
+                                "reason": record.reason,
+                                "pending_tool": record.pending_tool,
+                            }
+                            for record in pending
+                        ]
+                    )
+                    return
             except FileNotFoundError:
                 self._send_error(HTTPStatus.NOT_FOUND, "Not found")
                 return
@@ -75,37 +105,66 @@ def create_handler_class(
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
             path = unquote(parsed.path)
-            if path != "/api/chat":
-                self._send_error(HTTPStatus.NOT_FOUND, "Not found")
-                return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 raw = self.rfile.read(length) if length else b"{}"
-                body = json.loads(raw.decode("utf-8"))
+                body = json.loads(raw.decode("utf-8")) if raw else {}
+            except json.JSONDecodeError:
+                self._send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON body")
+                return
+
+            if path == "/api/chat":
+                self._handle_chat_post(body)
+                return
+            if path.startswith("/api/approvals/"):
+                approval_id = path.removeprefix("/api/approvals/").strip("/")
+                if approval_id:
+                    self._handle_approval_post(approval_id, body)
+                    return
+            self._send_error(HTTPStatus.NOT_FOUND, "Not found")
+
+        def _handle_chat_post(self, body: dict[str, Any]) -> None:
+            try:
                 message = str(body.get("message", "")).strip()
                 if not message:
                     self._send_error(HTTPStatus.BAD_REQUEST, "message is required")
                     return
+                session_id = body.get("session_id")
+                resolved_session = str(session_id).strip() if session_id else None
                 from agent_factory.runtime.chat import run_chat
 
                 result = run_chat(
                     message,
                     workspace_root=workspace,
                     agents_dir=store.agents_dir,
+                    session_id=resolved_session or None,
                     use_litellm_proxy=self.use_litellm_proxy,
                 )
-                self._send_json(
-                    {
-                        "reply": result.reply,
-                        "status": result.status.value,
-                        "routed_agent": result.routed_agent,
-                        "route_reason": result.route_reason,
-                        "run_id": result.run_id,
-                        "routing_run_id": result.routing_run_id,
-                        "model_used": result.model_used,
-                    }
+                self._send_json(_chat_result_payload(result))
+            except ValueError as error:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+
+        def _handle_approval_post(self, approval_id: str, body: dict[str, Any]) -> None:
+            try:
+                if "approved" not in body:
+                    self._send_error(HTTPStatus.BAD_REQUEST, "approved is required")
+                    return
+                approved = bool(body["approved"])
+                from agent_factory.runtime.chat import resolve_approval
+
+                result = resolve_approval(
+                    approval_id,
+                    approved=approved,
+                    workspace_root=workspace,
+                    agents_dir=store.agents_dir,
+                    use_litellm_proxy=self.use_litellm_proxy,
                 )
-            except (json.JSONDecodeError, ValueError) as error:
+                self._send_json(_chat_result_payload(result))
+            except FileNotFoundError:
+                self._send_error(HTTPStatus.NOT_FOUND, "Approval not found")
+            except ValueError as error:
                 self._send_error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
@@ -143,6 +202,22 @@ def create_handler_class(
             self.wfile.write(body)
 
     return AgentFactoryAPIHandler
+
+
+def _chat_result_payload(result: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "reply": result.reply,
+        "status": result.status.value,
+        "routed_agent": result.routed_agent,
+        "route_reason": result.route_reason,
+        "run_id": result.run_id,
+        "routing_run_id": result.routing_run_id,
+        "session_id": result.session_id,
+        "model_used": result.model_used,
+        "approval_id": result.approval_id or None,
+        "pending_approval": result.pending_approval,
+    }
+    return payload
 
 
 def serve_forever(server: ThreadingHTTPServer) -> None:
