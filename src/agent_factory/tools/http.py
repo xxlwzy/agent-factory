@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import ssl
 from collections.abc import Callable
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from agent_factory.tools.base import ToolResult
 
@@ -25,5 +26,15 @@ class HttpTool:
 
 
 def _default_fetch(url: str) -> str:
-    with urlopen(url) as response:
+    request = Request(url, headers={"User-Agent": "AgentFactory/0.1"})
+    with urlopen(request, timeout=60, context=_ssl_context()) as response:
         return response.read().decode("utf-8", errors="replace")
+
+
+def _ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()

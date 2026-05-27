@@ -23,21 +23,9 @@ Remaining for later phases:
 
 ## 3. Phase 3: Web Research Demo
 
-Goal: deliver the first end-to-end personal automation demo.
+Status: Implemented. See `phase-3-web-research-demo.md`.
 
-Expected flow:
-
-1. Load `configs/agents/web_researcher.yaml`.
-2. Read an allowed web page through HTTP or browser capability.
-3. Summarize content.
-4. Write Markdown report into `.agent-factory/runs/<run_id>/artifact/report.md`.
-5. Write trace and summary.
-
-Out of scope:
-
-- Autonomous scheduling.
-- Notifications.
-- Multi-agent review.
+Entry point: `run_web_research_demo()` in `src/agent_factory/runtime/web_research.py`.
 
 ## 4. Phase 4: Memory And Skill Drafts
 
