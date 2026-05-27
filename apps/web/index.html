@@ -20,10 +20,22 @@
 </head>
 <body>
   <h1>Agent Factory</h1>
-  <p class="sub">本地只读观察界面 — 不从此页面执行工具</p>
+  <p class="sub">对话入口经路由 Agent 委派到 YAML 定义的业务 Agent（工具由 Runtime 执行，非浏览器直连）</p>
 
   <section>
-    <h2>Agents</h2>
+    <h2>对话</h2>
+    <textarea id="chat-input" rows="3" style="width:100%; font: inherit;" placeholder="输入需求，例如：请总结 https://example.com"></textarea>
+    <p><button type="button" id="chat-send">发送</button></p>
+    <pre id="chat-reply" hidden></pre>
+  </section>
+
+  <section>
+    <h2>Agent 目录（可路由）</h2>
+    <table id="catalog"><thead><tr><th>Name</th><th>Role</th><th>Description</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Agents（配置文件）</h2>
     <table id="agents"><thead><tr><th>Name</th><th>Config</th></tr></thead><tbody></tbody></table>
   </section>
 
@@ -102,9 +114,47 @@
       }
     }
 
+    async function loadCatalog() {
+      const entries = await api("/api/agents/catalog");
+      const tbody = document.querySelector("#catalog tbody");
+      tbody.innerHTML = entries.map((e) =>
+        `<tr><td><code>${e.name}</code></td><td>${e.role}</td><td>${e.description}</td></tr>`
+      ).join("");
+    }
+
+    async function sendChat() {
+      const message = document.getElementById("chat-input").value.trim();
+      if (!message) return;
+      const replyEl = document.getElementById("chat-reply");
+      replyEl.hidden = false;
+      replyEl.textContent = "处理中…";
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.status);
+      replyEl.textContent = [
+        `reply: ${data.reply}`,
+        `agent: ${data.routed_agent}`,
+        `reason: ${data.route_reason}`,
+        `run_id: ${data.run_id}`,
+        `status: ${data.status}`,
+      ].join("\n");
+      await loadRuns();
+    }
+
     async function init() {
+      document.getElementById("chat-send").addEventListener("click", () => {
+        sendChat().catch((err) => {
+          const el = document.getElementById("error");
+          el.hidden = false;
+          el.textContent = err.message;
+        });
+      });
       try {
-        await Promise.all([loadAgents(), loadRuns(), loadDrafts()]);
+        await Promise.all([loadCatalog(), loadAgents(), loadRuns(), loadDrafts()]);
       } catch (err) {
         const el = document.getElementById("error");
         el.hidden = false;

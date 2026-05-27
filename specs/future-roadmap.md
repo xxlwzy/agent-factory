@@ -39,7 +39,13 @@ Status: Implemented. See `phase-5-local-api.md`.
 
 Start: `python scripts/run_local_api.py` → http://127.0.0.1:8765/
 
-## 6. Later Features
+## 6. Phase 6: Conversational Router
+
+Status: Implemented. See `phase-6-conversational-router.md`.
+
+Entry points: `run_chat()`, `POST /api/chat`, Web UI chat panel on http://127.0.0.1:8765/
+
+## 7. Later Features
 
 These remain future design topics:
 

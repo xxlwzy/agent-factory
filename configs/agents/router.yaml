@@ -1,0 +1,25 @@
+meta:
+  name: router
+  version: "0.1"
+  description: Internal entry agent that routes user requests to specialist agents.
+agent:
+  role: Agent router
+  model: router
+  system_prompt: |
+    You route user requests to the best specialist agent. You do not execute tools yourself.
+runtime:
+  max_turns: 1
+tools:
+  filesystem:
+    enabled: false
+  terminal:
+    enabled: false
+  browser:
+    enabled: false
+  http:
+    enabled: false
+permissions:
+  sandbox:
+    paths:
+      - .
+    domains: []
