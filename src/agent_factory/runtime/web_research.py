@@ -8,6 +8,7 @@ from agent_factory.config.loader import load_agent_config
 from agent_factory.llm.base import LLMAdapter
 from agent_factory.llm.litellm_proxy import LiteLLMProxyAdapter, litellm_proxy_adapter_from_env
 from agent_factory.llm.web_research_demo import WebResearchDemoLLM
+from agent_factory.runtime.learning import LearningArtifactsResult, generate_learning_artifacts
 from agent_factory.runtime.runner import AgentRunner
 from agent_factory.runtime.states import RunResult, RunStatus
 from agent_factory.runtime.trace import RunTrace
@@ -22,6 +23,7 @@ class WebResearchDemoResult:
     report_path: Path
     result: RunResult
     model_used: str | None = None
+    learning: LearningArtifactsResult | None = None
 
 
 def run_web_research_demo(
@@ -66,12 +68,24 @@ def run_web_research_demo(
     result = runner.run(run_task)
     _write_run_summary(trace, config.meta.name, url, result, report_rel)
     model_used = resolved_llm.active_model if isinstance(resolved_llm, LiteLLMProxyAdapter) else None
+    learning = generate_learning_artifacts(
+        config,
+        workspace_root=workspace,
+        run_id=resolved_run_id,
+        run_dir=run_dir,
+        report_path=(workspace / report_rel) if result.status == RunStatus.COMPLETED else None,
+        agent_name=config.meta.name,
+        task=run_task,
+        source_url=url,
+        status=result.status,
+    )
     return WebResearchDemoResult(
         run_id=resolved_run_id,
         run_dir=run_dir,
         report_path=workspace / report_rel,
         result=result,
         model_used=model_used,
+        learning=learning,
     )
 
 
