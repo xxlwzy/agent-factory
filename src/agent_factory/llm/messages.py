@@ -4,9 +4,16 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class ChatTurn:
+    role: str
+    content: str
+
+
+@dataclass(frozen=True)
 class LLMRequest:
     task: str
     messages: tuple[str, ...] = ()
+    history: tuple[ChatTurn, ...] = ()
 
 
 @dataclass(frozen=True)

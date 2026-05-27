@@ -42,6 +42,7 @@ Each spec should declare one state near the top:
 | `phase-4-memory-skill-drafts.md` | Implemented | Post-run session archive, memory candidates, and pending skill drafts. |
 | `phase-5-local-api.md` | Implemented | Read-only local API and minimal Web UI for runs, traces, artifacts, drafts. |
 | `phase-6-conversational-router.md` | Implemented | Chat entry with router delegation to YAML specialists and general fallback. |
+| `phase-6b-chat-sessions-approvals.md` | Implemented | Multi-turn chat sessions, confirm-gated approval flow, and Web UI approve/deny. |
 | `future-roadmap.md` | Design Draft | Future features such as teams, scheduler, hooks, MCP integration. |
 
 ## Relationship To Existing Docs

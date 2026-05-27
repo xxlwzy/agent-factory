@@ -21,6 +21,7 @@ def test_run_chat_returns_reply_from_specialist(tmp_path: Path) -> None:
     assert result.status == RunStatus.COMPLETED
     assert result.reply == "这是给用户的回复。"
     assert result.routed_agent == FALLBACK_AGENT
+    assert result.session_id
     assert (tmp_path / ".agent-factory" / "runs" / result.run_id / "summary.md").is_file()
 
 

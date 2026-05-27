@@ -93,7 +93,7 @@ def test_runner_fails_when_tool_execution_fails(tmp_path: Path) -> None:
     assert events[-1]["type"] == "run_failed"
 
 
-def test_runner_blocks_on_confirm_decision(tmp_path: Path) -> None:
+def test_runner_awaits_confirm_on_confirm_decision(tmp_path: Path) -> None:
     runner = AgentRunner(
         config=_config(tmp_path, http_domains=("api.example.com",)),
         llm=FakeLLMAdapter([ToolCallResponse(tool="http", operation="POST", target="https://api.example.com/items")]),
@@ -103,11 +103,12 @@ def test_runner_blocks_on_confirm_decision(tmp_path: Path) -> None:
 
     result = runner.run(task="write via api")
 
-    assert result.status == RunStatus.BLOCKED
+    assert result.status == RunStatus.AWAITING_CONFIRM
     assert result.reason == "HTTP write operation requires confirmation."
+    assert result.pending_tool is not None
     events = _trace_events(tmp_path / "run-1")
-    assert [event["type"] for event in events[-2:]] == ["permission_decision", "run_blocked"]
-    assert events[-1]["data"]["action"] == "confirm"
+    assert [event["type"] for event in events[-2:]] == ["permission_decision", "approval_requested"]
+    assert events[-2]["data"]["action"] == "confirm"
 
 
 def test_runner_blocks_on_deny_decision(tmp_path: Path) -> None:

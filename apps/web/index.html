@@ -13,20 +13,56 @@
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
     pre { background: #f0f2f5; padding: 0.75rem; overflow: auto; font-size: 0.8rem; border-radius: 6px; }
-    button { cursor: pointer; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid #ccc; background: #fff; }
+    button { cursor: pointer; padding: 0.35rem 0.75rem; border-radius: 4px; border: 1px solid #ccc; background: #fff; font: inherit; }
     button:hover { background: #f0f0f0; }
+    button.primary { background: #1a56db; color: #fff; border-color: #1a56db; }
+    button.primary:hover { background: #1648c0; }
+    button.danger { background: #b00020; color: #fff; border-color: #b00020; }
+    button.danger:hover { background: #8f0019; }
     .error { color: #b00020; }
+    .chat-layout { display: flex; flex-direction: column; gap: 0.75rem; }
+    #chat-messages {
+      min-height: 200px; max-height: 420px; overflow-y: auto;
+      border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem; background: #fafbfc;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 10px; font-size: 0.95rem; white-space: pre-wrap; word-break: break-word; }
+    .msg.user { align-self: flex-end; background: #dbeafe; }
+    .msg.assistant { align-self: flex-start; background: #fff; border: 1px solid #e5e7eb; }
+    .msg.system { align-self: center; background: #fef3c7; font-size: 0.85rem; color: #92400e; }
+    .chat-meta { font-size: 0.8rem; color: #666; }
+    #approval-banner {
+      display: none; padding: 0.75rem; border-radius: 8px;
+      background: #fff7ed; border: 1px solid #fdba74;
+    }
+    #approval-banner.visible { display: block; }
+    #approval-banner p { margin: 0.25rem 0; }
+    .approval-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .chat-input-row { display: flex; gap: 0.5rem; align-items: flex-end; }
   </style>
 </head>
 <body>
   <h1>Agent Factory</h1>
-  <p class="sub">对话入口经路由 Agent 委派到 YAML 定义的业务 Agent（工具由 Runtime 执行，非浏览器直连）</p>
+  <p class="sub">多轮对话经路由 Agent 委派；需确认的工具会在此暂停，由您批准或拒绝后继续。</p>
 
   <section>
     <h2>对话</h2>
-    <textarea id="chat-input" rows="3" style="width:100%; font: inherit;" placeholder="输入需求，例如：请总结 https://example.com"></textarea>
-    <p><button type="button" id="chat-send">发送</button></p>
-    <pre id="chat-reply" hidden></pre>
+    <p class="chat-meta">会话 ID：<code id="session-id">（新会话）</code></p>
+    <div class="chat-layout">
+      <div id="chat-messages" aria-live="polite"></div>
+      <div id="approval-banner" role="region" aria-label="待审批">
+        <p><strong>待您确认的工具操作</strong></p>
+        <p id="approval-detail"></p>
+        <div class="approval-actions">
+          <button type="button" class="primary" id="approval-approve">批准</button>
+          <button type="button" class="danger" id="approval-deny">拒绝</button>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chat-input" rows="2" style="flex:1; font: inherit;" placeholder="输入消息…"></textarea>
+        <button type="button" class="primary" id="chat-send">发送</button>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -61,10 +97,129 @@
   <p id="error" class="error" hidden></p>
 
   <script>
+    let sessionId = null;
+    let pendingApproval = null;
+
     const api = (path) => fetch(path).then((r) => {
       if (!r.ok) throw new Error(`${path} → ${r.status}`);
       return r.json();
     });
+
+    function showError(message) {
+      const el = document.getElementById("error");
+      el.hidden = false;
+      el.textContent = message;
+    }
+
+    function clearError() {
+      const el = document.getElementById("error");
+      el.hidden = true;
+      el.textContent = "";
+    }
+
+    function appendMessage(role, content) {
+      const box = document.getElementById("chat-messages");
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+      div.textContent = content;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function setSessionId(id) {
+      sessionId = id;
+      document.getElementById("session-id").textContent = id || "（新会话）";
+    }
+
+    function showApprovalBanner(pending) {
+      pendingApproval = pending;
+      const banner = document.getElementById("approval-banner");
+      if (!pending) {
+        banner.classList.remove("visible");
+        document.getElementById("approval-detail").textContent = "";
+        return;
+      }
+      banner.classList.add("visible");
+      document.getElementById("approval-detail").textContent =
+        `${pending.tool}.${pending.operation} → ${pending.target}\n原因：${pending.reason || ""}`;
+    }
+
+    async function applyChatResponse(data) {
+      if (data.session_id) setSessionId(data.session_id);
+      appendMessage("assistant", data.reply);
+      if (data.status === "awaiting_confirm" && data.pending_approval) {
+        showApprovalBanner(data.pending_approval);
+      } else {
+        showApprovalBanner(null);
+      }
+      await loadRuns();
+    }
+
+    async function postJson(path, body) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.status);
+      return data;
+    }
+
+    async function sendChat() {
+      const input = document.getElementById("chat-input");
+      const message = input.value.trim();
+      if (!message) return;
+      clearError();
+      appendMessage("user", message);
+      input.value = "";
+      document.getElementById("chat-send").disabled = true;
+      try {
+        const body = { message };
+        if (sessionId) body.session_id = sessionId;
+        const data = await postJson("/api/chat", body);
+        await applyChatResponse(data);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        document.getElementById("chat-send").disabled = false;
+      }
+    }
+
+    async function resolveApproval(approved) {
+      if (!pendingApproval?.approval_id) return;
+      clearError();
+      document.getElementById("approval-approve").disabled = true;
+      document.getElementById("approval-deny").disabled = true;
+      try {
+        const data = await postJson(`/api/approvals/${pendingApproval.approval_id}`, { approved });
+        showApprovalBanner(null);
+        appendMessage("system", approved ? "您已批准该操作。" : "您已拒绝该操作。");
+        await applyChatResponse(data);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        document.getElementById("approval-approve").disabled = false;
+        document.getElementById("approval-deny").disabled = false;
+      }
+    }
+
+    async function loadPendingApprovals() {
+      try {
+        const pending = await api("/api/approvals/pending");
+        if (pending.length > 0 && !pendingApproval) {
+          const first = pending[0];
+          showApprovalBanner({
+            approval_id: first.approval_id,
+            tool: first.pending_tool.tool,
+            operation: first.pending_tool.operation,
+            target: first.pending_tool.target,
+            reason: first.reason,
+          });
+          if (first.session_id) setSessionId(first.session_id);
+        }
+      } catch (_) { /* ignore on fresh workspace */ }
+    }
 
     async function loadAgents() {
       const agents = await api("/api/agents");
@@ -122,43 +277,20 @@
       ).join("");
     }
 
-    async function sendChat() {
-      const message = document.getElementById("chat-input").value.trim();
-      if (!message) return;
-      const replyEl = document.getElementById("chat-reply");
-      replyEl.hidden = false;
-      replyEl.textContent = "处理中…";
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || res.status);
-      replyEl.textContent = [
-        `reply: ${data.reply}`,
-        `agent: ${data.routed_agent}`,
-        `reason: ${data.route_reason}`,
-        `run_id: ${data.run_id}`,
-        `status: ${data.status}`,
-      ].join("\n");
-      await loadRuns();
-    }
-
     async function init() {
-      document.getElementById("chat-send").addEventListener("click", () => {
-        sendChat().catch((err) => {
-          const el = document.getElementById("error");
-          el.hidden = false;
-          el.textContent = err.message;
-        });
+      document.getElementById("chat-send").addEventListener("click", sendChat);
+      document.getElementById("chat-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendChat();
+        }
       });
+      document.getElementById("approval-approve").addEventListener("click", () => resolveApproval(true));
+      document.getElementById("approval-deny").addEventListener("click", () => resolveApproval(false));
       try {
-        await Promise.all([loadCatalog(), loadAgents(), loadRuns(), loadDrafts()]);
+        await Promise.all([loadCatalog(), loadAgents(), loadRuns(), loadDrafts(), loadPendingApprovals()]);
       } catch (err) {
-        const el = document.getElementById("error");
-        el.hidden = false;
-        el.textContent = err.message;
+        showError(err.message);
       }
     }
     init();
