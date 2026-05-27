@@ -10,38 +10,16 @@ Agent Factory should grow in vertical slices. Each future feature should get its
 
 ## 1. Phase 1: Single-Agent Runtime
 
-Goal: connect config, permissions, trace, and a fake LLM adapter into a testable agent loop.
-
-Expected scope:
-
-- `LLMAdapter` interface.
-- Fake adapter for deterministic tests.
-- Tool request/result message shapes.
-- Runtime state transitions: running, blocked, failed, completed.
-- Permission decisions written into `RunTrace`.
-
-Out of scope:
-
-- Real model provider calls.
-- Real browser automation.
-- Agent teams.
+Status: Implemented. See `phase-1-single-agent-runtime.md`.
 
 ## 2. Phase 2: Tool Registry And Safe Tool Adapters
 
-Goal: introduce atomic tool registration and minimal safe adapters.
+Status: Implemented. See `phase-2-tool-registry.md`.
 
-Expected scope:
+Remaining for later phases:
 
-- Tool registry.
-- Filesystem read/write inside sandbox.
-- HTTP GET inside allowlist.
-- Terminal adapter in confirm-only mode.
-- Browser adapter design draft if real browser automation is not ready.
-
-Out of scope:
-
-- Multi-step workflow tools.
-- Hidden tool-side retries that obscure traceability.
+- Terminal adapter execution behind approval UI.
+- Browser adapter with real automation.
 
 ## 3. Phase 3: Web Research Demo
 

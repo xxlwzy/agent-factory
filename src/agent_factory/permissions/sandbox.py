@@ -4,6 +4,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
+def resolve_workspace_path(path: str, workspace_root: Path) -> Path:
+    return _resolve_against_workspace(path, workspace_root)
+
+
 def is_path_inside_any_sandbox(target: str, sandbox_paths: tuple[str, ...], workspace_root: Path) -> bool:
     target_path = _resolve_against_workspace(target, workspace_root)
     for sandbox_path in sandbox_paths:

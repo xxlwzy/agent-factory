@@ -37,7 +37,8 @@ Each spec should declare one state near the top:
 |------|-------|---------|
 | `phase-0-foundation.md` | Implemented | Python package skeleton, YAML config loader, permission guard, and run trace foundation. |
 | `phase-1-single-agent-runtime.md` | Implemented | Fake-LLM-driven single-agent runtime loop with state transitions and trace events. |
-| `future-roadmap.md` | Design Draft | Future features such as single-agent runtime, tool registry, skill drafts, memory, teams, scheduler, hooks, and Web UI. |
+| `phase-2-tool-registry.md` | Implemented | Tool registry with filesystem read/write and HTTP GET adapters; runner executes allowed tools. |
+| `future-roadmap.md` | Design Draft | Future features such as web research demo, skill drafts, memory, teams, scheduler, hooks, and Web UI. |
 
 ## Relationship To Existing Docs
 

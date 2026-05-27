@@ -14,6 +14,7 @@ class ToolCallResponse:
     tool: str
     operation: str
     target: str
+    content: str = ""
 
 
 @dataclass(frozen=True)

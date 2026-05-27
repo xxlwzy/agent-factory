@@ -8,6 +8,7 @@ from agent_factory.llm.messages import FinalResponse, LLMRequest, ToolCallRespon
 from agent_factory.permissions.guard import PermissionGuard, ToolRequest
 from agent_factory.runtime.states import RunResult, RunStatus
 from agent_factory.runtime.trace import RunTrace
+from agent_factory.tools.registry import ToolRegistry, build_default_registry
 
 
 class AgentRunner:
@@ -17,14 +18,20 @@ class AgentRunner:
         llm: LLMAdapter,
         trace: RunTrace,
         workspace_root: str | Path,
+        tool_registry: ToolRegistry | None = None,
     ) -> None:
         self._config = config
         self._llm = llm
         self._trace = trace
+        self._workspace_root = Path(workspace_root).resolve()
         self._permission_guard = PermissionGuard(
             tools=config.tools,
             permissions=config.permissions,
-            workspace_root=workspace_root,
+            workspace_root=self._workspace_root,
+        )
+        self._tool_registry = tool_registry or build_default_registry(
+            config,
+            self._workspace_root,
         )
 
     def run(self, task: str) -> RunResult:
@@ -60,17 +67,29 @@ class AgentRunner:
                 self._trace.append("run_blocked", decision_data)
                 return RunResult(status=RunStatus.BLOCKED, reason=decision.reason)
 
+            tool_result = self._tool_registry.execute(
+                response.tool,
+                response.operation,
+                response.target,
+                content=response.content,
+            )
             self._trace.append(
-                "tool_skipped",
+                "tool_executed",
                 {
                     "tool": response.tool,
                     "operation": response.operation,
                     "target": response.target,
-                    "reason": "Tool execution is out of scope for Phase 1.",
+                    "success": tool_result.success,
+                    "output": tool_result.output,
+                    "error": tool_result.error,
                     "turn": turn,
                 },
             )
-            messages = messages + (f"{response.tool}.{response.operation}:{response.target}=skipped",)
+            if not tool_result.success:
+                return self._fail(tool_result.error or "Tool execution failed.")
+            messages = messages + (
+                f"{response.tool}.{response.operation}:{response.target}={tool_result.output}",
+            )
 
         return self._fail("Max turns reached before final response.")
 

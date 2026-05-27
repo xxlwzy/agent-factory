@@ -33,14 +33,20 @@ def test_runner_completes_on_final_response(tmp_path: Path) -> None:
     assert [event["type"] for event in events] == ["run_started", "llm_response", "run_completed"]
 
 
-def test_runner_records_allowed_tool_call_and_continues(tmp_path: Path) -> None:
+def test_runner_executes_allowed_filesystem_write_and_continues(tmp_path: Path) -> None:
     allowed = tmp_path / "allowed"
     allowed.mkdir()
+    report_path = allowed / "report.md"
     runner = AgentRunner(
         config=_config(tmp_path, sandbox_paths=(str(allowed),)),
         llm=FakeLLMAdapter(
             [
-                ToolCallResponse(tool="filesystem", operation="write", target=str(allowed / "report.md")),
+                ToolCallResponse(
+                    tool="filesystem",
+                    operation="write",
+                    target=str(report_path),
+                    content="# report",
+                ),
                 FinalResponse(content="done"),
             ]
         ),
@@ -56,12 +62,35 @@ def test_runner_records_allowed_tool_call_and_continues(tmp_path: Path) -> None:
         "run_started",
         "llm_response",
         "permission_decision",
-        "tool_skipped",
+        "tool_executed",
         "llm_response",
         "run_completed",
     ]
     assert events[2]["data"]["action"] == "allow"
-    assert not (allowed / "report.md").exists()
+    assert events[3]["data"]["success"] is True
+    assert report_path.read_text(encoding="utf-8") == "# report"
+
+
+def test_runner_fails_when_tool_execution_fails(tmp_path: Path) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    runner = AgentRunner(
+        config=_config(tmp_path, sandbox_paths=(str(allowed),)),
+        llm=FakeLLMAdapter(
+            [ToolCallResponse(tool="filesystem", operation="read", target=str(allowed / "missing.md"))]
+        ),
+        trace=RunTrace(tmp_path / "run-1"),
+        workspace_root=tmp_path,
+    )
+
+    result = runner.run(task="read report")
+
+    assert result.status == RunStatus.FAILED
+    assert "not found" in (result.reason or "").lower()
+    events = _trace_events(tmp_path / "run-1")
+    assert events[-2]["type"] == "tool_executed"
+    assert events[-2]["data"]["success"] is False
+    assert events[-1]["type"] == "run_failed"
 
 
 def test_runner_blocks_on_confirm_decision(tmp_path: Path) -> None:
