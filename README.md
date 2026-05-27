@@ -18,7 +18,9 @@ See `specs/README.md` for the durable feature/spec index.
 python scripts/run_local_api.py
 ```
 
-Open http://127.0.0.1:8765/ to browse runs, traces, reports, and skill drafts (read-only).
+Open http://127.0.0.1:8765/ to chat with the router agent, browse runs, traces, reports, and skill drafts.
+
+Chat API: `POST /api/chat` with JSON `{"message": "..."}` (requires local LiteLLM proxy when `use_litellm_proxy` is enabled).
 
 ## Documentation Map
 

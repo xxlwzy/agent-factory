@@ -15,12 +15,16 @@ def create_handler_class(
     workspace_root: str | Path,
     web_root: str | Path,
     agents_dir: str | Path | None = None,
+    use_litellm_proxy: bool = False,
 ) -> type[BaseHTTPRequestHandler]:
     workspace = Path(workspace_root).resolve()
     web = Path(web_root).resolve()
     store = WorkspaceStore(workspace, agents_dir=agents_dir)
+    litellm_enabled = use_litellm_proxy
 
     class AgentFactoryAPIHandler(BaseHTTPRequestHandler):
+        use_litellm_proxy = litellm_enabled
+
         def log_message(self, format: str, *args: Any) -> None:
             return
 
@@ -34,6 +38,9 @@ def create_handler_class(
                     return
                 if path == "/api/agents":
                     self._send_json(store.list_agents())
+                    return
+                if path == "/api/agents/catalog":
+                    self._send_json(store.list_agent_catalog())
                     return
                 if path == "/api/runs":
                     self._send_json(store.list_runs())
@@ -64,6 +71,44 @@ def create_handler_class(
                 return
 
             self._send_error(HTTPStatus.NOT_FOUND, "Not found")
+
+        def do_POST(self) -> None:
+            parsed = urlparse(self.path)
+            path = unquote(parsed.path)
+            if path != "/api/chat":
+                self._send_error(HTTPStatus.NOT_FOUND, "Not found")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(length) if length else b"{}"
+                body = json.loads(raw.decode("utf-8"))
+                message = str(body.get("message", "")).strip()
+                if not message:
+                    self._send_error(HTTPStatus.BAD_REQUEST, "message is required")
+                    return
+                from agent_factory.runtime.chat import run_chat
+
+                result = run_chat(
+                    message,
+                    workspace_root=workspace,
+                    agents_dir=store.agents_dir,
+                    use_litellm_proxy=self.use_litellm_proxy,
+                )
+                self._send_json(
+                    {
+                        "reply": result.reply,
+                        "status": result.status.value,
+                        "routed_agent": result.routed_agent,
+                        "route_reason": result.route_reason,
+                        "run_id": result.run_id,
+                        "routing_run_id": result.routing_run_id,
+                        "model_used": result.model_used,
+                    }
+                )
+            except (json.JSONDecodeError, ValueError) as error:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
 
         def _serve_index(self) -> None:
             index_path = web / "index.html"
@@ -110,9 +155,14 @@ def run_local_api(
     host: str = "127.0.0.1",
     port: int = 8765,
     web_root: str | Path | None = None,
+    use_litellm_proxy: bool = True,
 ) -> ThreadingHTTPServer:
     repo_root = Path(__file__).resolve().parents[3]
     resolved_web = Path(web_root) if web_root is not None else repo_root / "apps" / "web"
-    handler = create_handler_class(workspace_root=workspace_root, web_root=resolved_web)
+    handler = create_handler_class(
+        workspace_root=workspace_root,
+        web_root=resolved_web,
+        use_litellm_proxy=use_litellm_proxy,
+    )
     server = ThreadingHTTPServer((host, port), handler)
     return server

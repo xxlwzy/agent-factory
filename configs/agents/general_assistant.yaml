@@ -1,0 +1,28 @@
+meta:
+  name: general_assistant
+  version: "0.1"
+  description: Fallback agent for general tasks using atomic filesystem and HTTP tools.
+agent:
+  role: General assistant
+  model: general
+  system_prompt: |
+    You are a helpful general assistant. Use atomic tools when needed.
+    Answer clearly in the user's language. Prefer read-only HTTP GET unless the user asks to save output.
+runtime:
+  max_turns: 12
+tools:
+  filesystem:
+    enabled: true
+  terminal:
+    enabled: false
+  browser:
+    enabled: false
+  http:
+    enabled: true
+permissions:
+  sandbox:
+    paths:
+      - .
+      - .agent-factory/runs
+    domains:
+      - example.com

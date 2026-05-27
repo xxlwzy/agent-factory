@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from agent_factory.config.catalog import AgentCatalog
+
 
 class WorkspaceStore:
     def __init__(self, workspace_root: str | Path, *, agents_dir: str | Path | None = None) -> None:
@@ -14,6 +16,10 @@ class WorkspaceStore:
         agents_path = Path(agents_dir) if agents_dir is not None else self._workspace / "configs" / "agents"
         self._agents_dir = agents_path.resolve()
 
+    @property
+    def agents_dir(self) -> Path:
+        return self._agents_dir
+
     def list_agents(self) -> list[dict[str, str]]:
         if not self._agents_dir.is_dir():
             return []
@@ -21,6 +27,18 @@ class WorkspaceStore:
         for path in sorted(self._agents_dir.glob("*.yaml")):
             agents.append({"name": path.stem, "path": str(path.relative_to(self._workspace))})
         return agents
+
+    def list_agent_catalog(self) -> list[dict[str, str]]:
+        catalog = AgentCatalog(self._agents_dir)
+        return [
+            {
+                "name": entry.name,
+                "role": entry.role,
+                "description": entry.description,
+                "path": str(entry.path.relative_to(self._workspace)),
+            }
+            for entry in catalog.list_routable()
+        ]
 
     def list_runs(self) -> list[dict[str, Any]]:
         if not self._runs_root.is_dir():

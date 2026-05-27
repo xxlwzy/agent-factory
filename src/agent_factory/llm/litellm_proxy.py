@@ -8,6 +8,7 @@ from typing import Any
 
 from agent_factory.llm.litellm_env import resolve_litellm_api_key
 from agent_factory.llm.messages import FinalResponse, LLMRequest, LLMResponse, ToolCallResponse
+from agent_factory.llm.tool_calls import tool_call_from_openai_message
 from agent_factory.llm.model_priority import resolve_litellm_model_candidates
 
 _PROXY_TOOLS: list[dict[str, Any]] = [
@@ -159,7 +160,7 @@ class LiteLLMProxyAdapter:
 
         self._messages.append(message)
         if tool_calls:
-            return _tool_call_from_openai(tool_calls[0])
+            return tool_call_from_openai_message(tool_calls[0])
         return FinalResponse(content=content)
 
 
@@ -194,25 +195,3 @@ def _build_system_prompt(system_prompt: str, source_url: str, report_path: str) 
     )
 
 
-def _tool_call_from_openai(tool_call: dict[str, Any]) -> ToolCallResponse:
-    function = tool_call.get("function") or {}
-    name = function.get("name", "")
-    try:
-        arguments = json.loads(function.get("arguments") or "{}")
-    except json.JSONDecodeError as error:
-        raise RuntimeError(f"Invalid tool arguments from model: {function.get('arguments')!r}") from error
-
-    if name == "http_get":
-        url = str(arguments.get("url", "")).strip()
-        if not url:
-            raise RuntimeError("http_get tool call missing url.")
-        return ToolCallResponse(tool="http", operation="GET", target=url)
-
-    if name == "filesystem_write":
-        path = str(arguments.get("path", "")).strip()
-        content = str(arguments.get("content", ""))
-        if not path:
-            raise RuntimeError("filesystem_write tool call missing path.")
-        return ToolCallResponse(tool="filesystem", operation="write", target=path, content=content)
-
-    raise RuntimeError(f"Unsupported tool call from model: {name}")

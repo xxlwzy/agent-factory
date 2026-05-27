@@ -16,7 +16,12 @@ def main() -> int:
     parser.add_argument("--workspace", default=".", help="Workspace root.")
     args = parser.parse_args()
 
-    server = run_local_api(workspace_root=Path(args.workspace), host=args.host, port=args.port)
+    server = run_local_api(
+        workspace_root=Path(args.workspace),
+        host=args.host,
+        port=args.port,
+        use_litellm_proxy=True,
+    )
     print(f"Agent Factory local API: http://{args.host}:{args.port}/")
     print("Read-only. Tool execution is not available from this server.")
     try:
