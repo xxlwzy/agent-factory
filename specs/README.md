@@ -39,7 +39,8 @@ Each spec should declare one state near the top:
 | `phase-1-single-agent-runtime.md` | Implemented | Fake-LLM-driven single-agent runtime loop with state transitions and trace events. |
 | `phase-2-tool-registry.md` | Implemented | Tool registry with filesystem read/write and HTTP GET adapters; runner executes allowed tools. |
 | `phase-3-web-research-demo.md` | Implemented | End-to-end web research demo with report artifact under `.agent-factory/runs/<run_id>/`. |
-| `future-roadmap.md` | Design Draft | Future features such as skill drafts, memory, teams, scheduler, hooks, and Web UI. |
+| `phase-4-memory-skill-drafts.md` | Implemented | Post-run session archive, memory candidates, and pending skill drafts. |
+| `future-roadmap.md` | Design Draft | Future features such as local API, Web UI, teams, scheduler, hooks. |
 
 ## Relationship To Existing Docs
 

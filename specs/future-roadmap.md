@@ -29,19 +29,9 @@ Entry point: `run_web_research_demo()` in `src/agent_factory/runtime/web_researc
 
 ## 4. Phase 4: Memory And Skill Drafts
 
-Goal: generate learning artifacts after successful runs without automatically changing long-term behavior.
+Status: Implemented. See `phase-4-memory-skill-drafts.md`.
 
-Expected scope:
-
-- Session summary archive.
-- Project/user memory candidates.
-- Skill draft generation.
-- Human review status.
-
-Out of scope:
-
-- Automatic skill enabling.
-- Executable generated scripts.
+Entry point: `generate_learning_artifacts()` in `src/agent_factory/runtime/learning.py`.
 
 ## 5. Phase 5: Local API And Minimal Web UI
 

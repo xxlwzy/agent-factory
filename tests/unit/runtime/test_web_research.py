@@ -58,6 +58,9 @@ def test_run_web_research_demo_writes_report_and_summary(tmp_path: Path) -> None
     assert "Key fact here" in report_path.read_text(encoding="utf-8")
     assert summary_path.is_file()
     assert trace_path.is_file()
+    assert result.learning is not None
+    assert result.learning.session_archive is not None
+    assert result.learning.skill_draft_dir is not None
 
 
 def test_run_web_research_demo_blocks_disallowed_domain(tmp_path: Path) -> None:
