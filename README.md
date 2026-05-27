@@ -12,6 +12,14 @@ The first milestone focuses on a single-agent vertical slice:
 
 See `specs/README.md` for the durable feature/spec index.
 
+## Local observation UI
+
+```bash
+python scripts/run_local_api.py
+```
+
+Open http://127.0.0.1:8765/ to browse runs, traces, reports, and skill drafts (read-only).
+
 ## Documentation Map
 
 - `AGENTS.md`: required project guide for agents and contributors.
