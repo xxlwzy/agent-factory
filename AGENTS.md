@@ -24,6 +24,13 @@ Agent Factory is a local-first personal agent harness. The first product directi
 - `specs/` contains durable feature specs for humans and agents.
 - `.agent-factory/` is reserved for local runtime data and must not be committed.
 
+## Git Workflow (Baseline: `master`)
+
+- `master` is the stable baseline branch for verified vertical slices.
+- Start each feature from latest `master` on a `feature/<short-name>` branch.
+- Merge to `master` only after `python -m pytest tests/unit -v` passes and the relevant spec is updated.
+- See `docs/development-workflow.md` for the full branching checklist.
+
 ## Development Rules
 
 1. Keep tools atomic. Do not hide multi-step business workflows inside a tool adapter; compose tools through runtime logic or skills.

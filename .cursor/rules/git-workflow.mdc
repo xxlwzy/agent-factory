@@ -1,0 +1,12 @@
+---
+description: Git branching workflow — baseline master, feature branches, merge after tests
+alwaysApply: true
+---
+
+# Git Workflow
+
+- **`master` is the baseline branch.** It only receives verified, merged feature work.
+- **Start every feature from `master`:** `git checkout master && git pull && git checkout -b feature/<name>`
+- **Do not commit directly to `master`** unless updating docs-only workflow or emergency hotfixes agreed with the user.
+- **Before merge:** run `python -m pytest tests/unit -v` and ensure the active spec is updated.
+- **Merge feature → `master`** with `--no-ff` after tests pass; see `docs/development-workflow.md`.

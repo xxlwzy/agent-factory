@@ -15,6 +15,7 @@ See `specs/README.md` for the durable feature/spec index.
 ## Documentation Map
 
 - `AGENTS.md`: required project guide for agents and contributors.
+- `docs/development-workflow.md`: baseline branch (`master`), feature branches, merge gates.
 - `specs/`: durable phase and feature specs for cross-session development.
 - `docs/superpowers/`: design and implementation planning artifacts produced during assisted development.
 
