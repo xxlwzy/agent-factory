@@ -1,0 +1,17 @@
+meta:
+  name: research_report
+  description: Researcher gathers facts; writer produces the final report.
+team:
+  members:
+    - id: researcher
+      agent: web_researcher.yaml
+    - id: writer
+      agent: general_assistant.yaml
+  pipeline:
+    - member: researcher
+      task: "{team_task}"
+    - member: writer
+      task: |
+        Write a concise Markdown report using the research notes below.
+
+        {last_output}
