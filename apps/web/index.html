@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent Factory</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f6f7f9; }
+    body { margin: 0 auto; max-width: 960px; padding: 1.5rem; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    p.sub { color: #555; margin-top: 0; }
+    section { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
+    pre { background: #f0f2f5; padding: 0.75rem; overflow: auto; font-size: 0.8rem; border-radius: 6px; }
+    button { cursor: pointer; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid #ccc; background: #fff; }
+    button:hover { background: #f0f0f0; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>Agent Factory</h1>
+  <p class="sub">本地只读观察界面 — 不从此页面执行工具</p>
+
+  <section>
+    <h2>Agents</h2>
+    <table id="agents"><thead><tr><th>Name</th><th>Config</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Runs</h2>
+    <table id="runs"><thead><tr><th>Run ID</th><th>Status</th><th>Report</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Skill drafts</h2>
+    <table id="drafts"><thead><tr><th>Draft ID</th><th>Status</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section id="detail" hidden>
+    <h2>Run detail: <span id="detail-run-id"></span></h2>
+    <pre id="detail-summary"></pre>
+    <h3>Trace</h3>
+    <pre id="detail-trace"></pre>
+    <h3>Report</h3>
+    <pre id="detail-report"></pre>
+  </section>
+
+  <p id="error" class="error" hidden></p>
+
+  <script>
+    const api = (path) => fetch(path).then((r) => {
+      if (!r.ok) throw new Error(`${path} → ${r.status}`);
+      return r.json();
+    });
+
+    async function loadAgents() {
+      const agents = await api("/api/agents");
+      const tbody = document.querySelector("#agents tbody");
+      tbody.innerHTML = agents.map((a) =>
+        `<tr><td>${a.name}</td><td><code>${a.path}</code></td></tr>`
+      ).join("");
+    }
+
+    async function loadRuns() {
+      const runs = await api("/api/runs");
+      const tbody = document.querySelector("#runs tbody");
+      tbody.innerHTML = runs.map((r) =>
+        `<tr>
+          <td><code>${r.run_id}</code></td>
+          <td>${r.status}</td>
+          <td>${r.has_report ? "yes" : "no"}</td>
+          <td><button type="button" data-run="${r.run_id}">View</button></td>
+        </tr>`
+      ).join("");
+      tbody.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => showRun(btn.dataset.run));
+      });
+    }
+
+    async function loadDrafts() {
+      const drafts = await api("/api/skills/drafts");
+      const tbody = document.querySelector("#drafts tbody");
+      tbody.innerHTML = drafts.map((d) =>
+        `<tr><td><code>${d.draft_id}</code></td><td>${d.status}</td></tr>`
+      ).join("");
+    }
+
+    async function showRun(runId) {
+      const meta = await api(`/api/runs/${runId}`);
+      const trace = await api(`/api/runs/${runId}/trace`);
+      document.getElementById("detail").hidden = false;
+      document.getElementById("detail-run-id").textContent = runId;
+      document.getElementById("detail-summary").textContent = meta.summary || "(no summary)";
+      document.getElementById("detail-trace").textContent = JSON.stringify(trace, null, 2);
+      const reportEl = document.getElementById("detail-report");
+      if (meta.artifacts && meta.artifacts.includes("report.md")) {
+        const res = await fetch(`/api/runs/${runId}/artifacts/report.md`);
+        reportEl.textContent = res.ok ? await res.text() : "(report not readable)";
+      } else {
+        reportEl.textContent = "(no report)";
+      }
+    }
+
+    async function init() {
+      try {
+        await Promise.all([loadAgents(), loadRuns(), loadDrafts()]);
+      } catch (err) {
+        const el = document.getElementById("error");
+        el.hidden = false;
+        el.textContent = err.message;
+      }
+    }
+    init();
+  </script>
+</body>
+</html>

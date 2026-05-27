@@ -35,18 +35,9 @@ Entry point: `generate_learning_artifacts()` in `src/agent_factory/runtime/learn
 
 ## 5. Phase 5: Local API And Minimal Web UI
 
-Goal: provide a local observation and control surface.
+Status: Implemented. See `phase-5-local-api.md`.
 
-Expected scope:
-
-- Local API for agents, runs, trace, artifacts, and skill drafts.
-- Simple Web UI for run status and artifact viewing.
-- No direct tool execution from Web UI; all actions go through runtime and permissions.
-
-Out of scope:
-
-- Multi-user auth.
-- Hosted SaaS deployment.
+Start: `python scripts/run_local_api.py` → http://127.0.0.1:8765/
 
 ## 6. Later Features
 
