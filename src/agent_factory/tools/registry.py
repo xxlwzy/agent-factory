@@ -4,8 +4,10 @@ from pathlib import Path
 
 from agent_factory.config.schema import AgentFactoryConfig, ToolConfig
 from agent_factory.tools.base import ToolAdapter, ToolResult
+from agent_factory.tools.browser import BrowserFetcher, BrowserTool
 from agent_factory.tools.filesystem import FilesystemTool
 from agent_factory.tools.http import HttpFetcher, HttpTool
+from agent_factory.tools.terminal import CommandRunner, TerminalTool
 
 
 class ToolRegistry:
@@ -34,9 +36,13 @@ def build_default_registry(
     workspace_root: str | Path,
     *,
     http_fetcher: HttpFetcher | None = None,
+    browser_fetcher: BrowserFetcher | None = None,
+    terminal_runner: CommandRunner | None = None,
 ) -> ToolRegistry:
     adapters: dict[str, ToolAdapter] = {
         "filesystem": FilesystemTool(workspace_root=workspace_root),
         "http": HttpTool(fetcher=http_fetcher),
+        "terminal": TerminalTool(workspace_root=workspace_root, command_runner=terminal_runner),
+        "browser": BrowserTool(fetcher=browser_fetcher),
     }
     return ToolRegistry(adapters=adapters, enabled_tools=config.tools)

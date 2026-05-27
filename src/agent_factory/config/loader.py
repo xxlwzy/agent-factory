@@ -10,12 +10,11 @@ from agent_factory.config.schema import (
     AgentFactoryConfig,
     MemoryConfig,
     MetaConfig,
-    PermissionsConfig,
     RuntimeConfig,
-    SandboxConfig,
     SkillsConfig,
     ToolConfig,
 )
+from agent_factory.config.policy_loader import resolve_agent_permissions
 from agent_factory.config.unsupported import collect_unsupported_warnings
 
 
@@ -27,12 +26,15 @@ def load_agent_config(path: str | Path) -> AgentFactoryConfig:
 
     _require_sections(raw, ("meta", "agent", "tools", "permissions"))
 
+    policy_name = _optional_policy_name(raw.get("policy"))
+    permissions_raw = _mapping(raw["permissions"], "permissions")
+
     return AgentFactoryConfig(
         meta=_parse_meta(_mapping(raw["meta"], "meta")),
         agent=_parse_agent(_mapping(raw["agent"], "agent")),
         runtime=_parse_runtime(_mapping(raw.get("runtime", {}), "runtime")),
         tools=_parse_tools(_mapping(raw["tools"], "tools")),
-        permissions=_parse_permissions(_mapping(raw["permissions"], "permissions")),
+        permissions=resolve_agent_permissions(config_path, permissions_raw, policy_name),
         memory=_parse_memory(_mapping(raw.get("memory", {}), "memory")),
         skills=_parse_skills(_mapping(raw.get("skills", {}), "skills")),
         unsupported_warnings=collect_unsupported_warnings(raw),
@@ -93,16 +95,13 @@ def _parse_tools(raw: dict[str, Any]) -> dict[str, ToolConfig]:
     return tools
 
 
-def _parse_permissions(raw: dict[str, Any]) -> PermissionsConfig:
-    sandbox_raw = _mapping(raw.get("sandbox", {}), "permissions.sandbox")
-    return PermissionsConfig(
-        sandbox=SandboxConfig(
-            paths=tuple(str(path) for path in sandbox_raw.get("paths", ())),
-            domains=tuple(str(domain) for domain in sandbox_raw.get("domains", ())),
-        ),
-        confirm=tuple(str(rule) for rule in raw.get("confirm", ())),
-        deny=tuple(str(rule) for rule in raw.get("deny", ())),
-    )
+def _optional_policy_name(value: object) -> str | None:
+    if value is None:
+        return None
+    name = str(value).strip()
+    if not name:
+        raise ValueError("policy must be a non-empty string when set.")
+    return name
 
 
 def _parse_memory(raw: dict[str, Any]) -> MemoryConfig:

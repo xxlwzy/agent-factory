@@ -21,15 +21,15 @@ Agent Factory 已完成「单 agent + 工具 + 演示 + 学习草稿 + 本地 AP
 | Phase 6 | Implemented | 对话路由、YAML 专家委托 | `tests/unit/runtime/test_chat.py`, `routing/` |
 | Phase 6b | Implemented | 多轮 session、confirm 审批、UI 批准/拒绝 | `tests/unit/runtime/test_session_and_approval.py` |
 
-**全量门控：** `python -m pytest tests/unit -v` → **60 passed**
+**全量门控：** `python -m pytest tests/unit -v` → **75 passed**（含 M1）
 
 ### 1.1 已有但尚未「产品级」的能力
 
 | 能力 | 现状 | 缺口 |
 |------|------|------|
-| Terminal 工具 | PermissionGuard 可 confirm/deny | 无真实 terminal adapter |
-| Browser 工具 | YAML/schema 可声明 | 无真实 browser adapter |
-| Policy 复用 | `configs/policies/default.yaml` 存在 | 未从独立 policy 文件加载合并 |
+| Terminal 工具 | `TerminalTool` + registry；沙箱 cwd、deny 列表 | 高级 shell 策略、allow 白名单 |
+| Browser 工具 | `BrowserTool` read/navigate + injectable fetcher | Playwright、submit 实现 |
+| Policy 复用 | `policy:` 引用 + `policy_loader` 合并 | 多 policy 链式继承 |
 | Skill 生命周期 | draft + `review.json` 状态 | 无 loader 注入上下文、无 enable 到 `configs/skills/` |
 | Memory 写入 | session 归档 + 候选文件 | 无人工确认后写入 project/user |
 | Team / Scheduler / Hooks / MCP | schema 可 mock | 无真实执行 |
@@ -88,7 +88,7 @@ flowchart TB
 
 | 里程碑 | 主题 | 目标 | 建议并行度 |
 |--------|------|------|------------|
-| **M1** | 工具面补齐 | Terminal + Browser + Policy 加载 | 高（3 条独立 track） |
+| **M1** | 工具面补齐 | Terminal + Browser + Policy 加载 | **Implemented**（2026-05-27） |
 | **M2** | 学习闭环 | Skill 加载/启用、Memory 晋升 | 中（共享 runner 集成点） |
 | **M3** | 自主与扩展 | Hooks、Scheduler、MCP | 高（3 条独立 track） |
 | **M4** | 多 Agent 协作 | Team YAML、Message Bus、编排 | 低（强顺序依赖） |

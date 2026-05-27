@@ -15,6 +15,8 @@ from agent_factory.llm.messages import FinalResponse, ToolCallResponse
 from agent_factory.runtime.runner import AgentRunner
 from agent_factory.runtime.states import RunStatus
 from agent_factory.runtime.trace import RunTrace
+from agent_factory.tools.base import ToolResult
+from agent_factory.tools.registry import build_default_registry
 
 
 def test_runner_completes_on_final_response(tmp_path: Path) -> None:
@@ -143,6 +145,86 @@ def test_runner_fails_when_adapter_is_exhausted(tmp_path: Path) -> None:
     assert _trace_events(tmp_path / "run-1")[-1]["type"] == "run_failed"
 
 
+def test_runner_executes_terminal_after_approval(tmp_path: Path) -> None:
+    captured: list[str] = []
+
+    def fake_runner(args: list[str], cwd: Path) -> ToolResult:
+        captured.append(" ".join(args))
+        return ToolResult(success=True, output="hello")
+
+    registry = build_default_registry(
+        _config(tmp_path, terminal_enabled=True),
+        tmp_path,
+        terminal_runner=fake_runner,
+    )
+    runner = AgentRunner(
+        config=_config(tmp_path, terminal_enabled=True),
+        llm=FakeLLMAdapter(
+            [
+                ToolCallResponse(tool="terminal", operation="run", target="echo hello"),
+                FinalResponse(content="done"),
+            ]
+        ),
+        trace=RunTrace(tmp_path / "run-1"),
+        workspace_root=tmp_path,
+        tool_registry=registry,
+    )
+
+    paused = runner.run(task="run echo")
+    assert paused.status == RunStatus.AWAITING_CONFIRM
+    assert paused.pending_tool is not None
+
+    result = runner.continue_from_approval(
+        task="run echo",
+        messages=(),
+        pending_tool=paused.pending_tool,
+        approved=True,
+    )
+
+    assert result.status == RunStatus.COMPLETED
+    assert captured == ["echo hello"]
+    events = _trace_events(tmp_path / "run-1")
+    assert "tool_executed" in [event["type"] for event in events]
+    executed = next(event for event in events if event["type"] == "tool_executed")
+    assert executed["data"]["tool"] == "terminal"
+    assert executed["data"]["success"] is True
+
+
+def test_runner_executes_browser_read(tmp_path: Path) -> None:
+    registry = build_default_registry(
+        _config(tmp_path, browser_enabled=True),
+        tmp_path,
+        browser_fetcher=lambda url: f"page:{url}",
+    )
+    runner = AgentRunner(
+        config=_config(tmp_path, browser_enabled=True),
+        llm=FakeLLMAdapter(
+            [
+                ToolCallResponse(tool="browser", operation="read", target="https://example.com"),
+                FinalResponse(content="done"),
+            ]
+        ),
+        trace=RunTrace(tmp_path / "run-1"),
+        workspace_root=tmp_path,
+        tool_registry=registry,
+    )
+
+    paused = runner.run(task="read page")
+
+    assert paused.status == RunStatus.AWAITING_CONFIRM
+    result = runner.continue_from_approval(
+        task="read page",
+        messages=(),
+        pending_tool=paused.pending_tool,
+        approved=True,
+    )
+
+    assert result.status == RunStatus.COMPLETED
+    events = _trace_events(tmp_path / "run-1")
+    executed = next(event for event in events if event["type"] == "tool_executed")
+    assert executed["data"]["output"] == "page:https://example.com"
+
+
 def test_runner_fails_when_max_turns_is_reached(tmp_path: Path) -> None:
     allowed = tmp_path / "allowed"
     allowed.mkdir()
@@ -170,15 +252,23 @@ def _config(
     max_turns: int = 5,
     sandbox_paths: tuple[str, ...] | None = None,
     http_domains: tuple[str, ...] = (),
+    *,
+    terminal_enabled: bool = False,
+    browser_enabled: bool = False,
 ) -> AgentFactoryConfig:
+    tools: dict[str, ToolConfig] = {
+        "filesystem": ToolConfig(enabled=True),
+        "http": ToolConfig(enabled=True),
+    }
+    if terminal_enabled:
+        tools["terminal"] = ToolConfig(enabled=True)
+    if browser_enabled:
+        tools["browser"] = ToolConfig(enabled=True)
     return AgentFactoryConfig(
         meta=MetaConfig(name="test_agent"),
         agent=AgentConfig(role="tester", model="fake", system_prompt="test"),
         runtime=RuntimeConfig(max_turns=max_turns),
-        tools={
-            "filesystem": ToolConfig(enabled=True),
-            "http": ToolConfig(enabled=True),
-        },
+        tools=tools,
         permissions=PermissionsConfig(
             sandbox=SandboxConfig(
                 paths=sandbox_paths if sandbox_paths is not None else (str(tmp_path),),

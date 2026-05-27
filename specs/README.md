@@ -43,6 +43,9 @@ Each spec should declare one state near the top:
 | `phase-5-local-api.md` | Implemented | Read-only local API and minimal Web UI for runs, traces, artifacts, drafts. |
 | `phase-6-conversational-router.md` | Implemented | Chat entry with router delegation to YAML specialists and general fallback. |
 | `phase-6b-chat-sessions-approvals.md` | Implemented | Multi-turn chat sessions, confirm-gated approval flow, and Web UI approve/deny. |
+| `phase-7a-terminal-tool.md` | Implemented | Sandbox terminal adapter (`run` operation, deny list). |
+| `phase-7b-browser-tool.md` | Implemented | Browser read/navigate via injectable fetcher. |
+| `phase-7c-policy-loader.md` | Implemented | Merge `configs/policies/*.yaml` via agent `policy:` field. |
 | `long-term-roadmap.md` | Active | Milestones M1–M5 and multi-agent coordination rules for Phase 7+. |
 | `future-roadmap.md` | Design Draft | Historical phase index; see `long-term-roadmap.md` for active planning. |
 

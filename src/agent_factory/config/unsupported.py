@@ -6,6 +6,7 @@ EXECUTABLE_TOP_LEVEL_SECTIONS = {
     "permissions",
     "memory",
     "skills",
+    "policy",
 }
 
 MOCKED_TOP_LEVEL_SECTIONS = {
