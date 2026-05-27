@@ -10,4 +10,12 @@ The first milestone focuses on a single-agent vertical slice:
 - Record run traces
 - Generate reviewable learning artifacts in later milestones
 
-See `docs/superpowers/specs/2026-05-26-agent-factory-design.md` for the design.
+See `specs/README.md` for the durable feature/spec index.
+
+## Documentation Map
+
+- `AGENTS.md`: required project guide for agents and contributors.
+- `specs/`: durable phase and feature specs for cross-session development.
+- `docs/superpowers/`: design and implementation planning artifacts produced during assisted development.
+
+Start with `AGENTS.md`, then read `specs/README.md` and the active phase spec.
