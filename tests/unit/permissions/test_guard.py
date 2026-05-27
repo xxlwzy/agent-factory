@@ -58,7 +58,7 @@ def test_confirms_http_write_to_allowed_domain(tmp_path: Path) -> None:
     assert decision == PermissionDecision("confirm", "HTTP write operation requires confirmation.")
 
 
-def test_denies_http_domain_outside_allowlist(tmp_path: Path) -> None:
+def test_confirms_http_domain_outside_allowlist(tmp_path: Path) -> None:
     guard = PermissionGuard(
         tools={"http": ToolConfig(enabled=True)},
         permissions=PermissionsConfig(sandbox=SandboxConfig(domains=("example.com",))),
@@ -67,7 +67,8 @@ def test_denies_http_domain_outside_allowlist(tmp_path: Path) -> None:
 
     decision = guard.evaluate(ToolRequest(tool="http", operation="GET", target="https://evil.test/data"))
 
-    assert decision == PermissionDecision("deny", "HTTP target domain is outside allowlist.")
+    assert decision.action == "confirm"
+    assert "outside allowlist" in decision.reason
 
 
 def test_explicit_deny_rule_takes_precedence(tmp_path: Path) -> None:

@@ -82,7 +82,15 @@
 
   <section>
     <h2>Skill drafts</h2>
-    <table id="drafts"><thead><tr><th>Draft ID</th><th>Status</th></tr></thead><tbody></tbody></table>
+    <table id="drafts"><thead><tr><th>Draft ID</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Memory candidates</h2>
+    <h3>Project</h3>
+    <table id="memory-project"><thead><tr><th>ID</th><th>Promoted</th><th></th></tr></thead><tbody></tbody></table>
+    <h3>User</h3>
+    <table id="memory-user"><thead><tr><th>ID</th><th>Promoted</th><th></th></tr></thead><tbody></tbody></table>
   </section>
 
   <section id="detail" hidden>
@@ -249,8 +257,60 @@
       const drafts = await api("/api/skills/drafts");
       const tbody = document.querySelector("#drafts tbody");
       tbody.innerHTML = drafts.map((d) =>
-        `<tr><td><code>${d.draft_id}</code></td><td>${d.status}</td></tr>`
+        `<tr>
+          <td><code>${d.draft_id}</code></td>
+          <td>${d.status}</td>
+          <td>${d.status === "enabled" ? "" : `<button type="button" data-enable-draft="${d.draft_id}">Enable</button>`}</td>
+        </tr>`
       ).join("");
+      tbody.querySelectorAll("[data-enable-draft]").forEach((btn) => {
+        btn.addEventListener("click", () => enableDraft(btn.dataset.enableDraft));
+      });
+    }
+
+    async function enableDraft(draftId) {
+      clearError();
+      try {
+        await postJson(`/api/skills/drafts/${draftId}/enable`, {});
+        appendMessage("system", `Skill draft ${draftId} 已启用。`);
+        await loadDrafts();
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    function renderMemoryCandidates(tableId, layer, items) {
+      const tbody = document.querySelector(`#${tableId} tbody`);
+      tbody.innerHTML = items.map((c) =>
+        `<tr>
+          <td><code>${c.candidate_id}</code></td>
+          <td>${c.promoted ? "yes" : "no"}</td>
+          <td>${c.promoted ? "" : `<button type="button" data-promote="${layer}" data-id="${c.candidate_id}">Promote</button>`}</td>
+        </tr>`
+      ).join("");
+      tbody.querySelectorAll("[data-promote]").forEach((btn) => {
+        btn.addEventListener("click", () => promoteMemory(btn.dataset.promote, btn.dataset.id));
+      });
+    }
+
+    async function loadMemoryCandidates() {
+      const [project, user] = await Promise.all([
+        api("/api/memory/candidates/project"),
+        api("/api/memory/candidates/user"),
+      ]);
+      renderMemoryCandidates("memory-project", "project", project);
+      renderMemoryCandidates("memory-user", "user", user);
+    }
+
+    async function promoteMemory(layer, candidateId) {
+      clearError();
+      try {
+        await postJson(`/api/memory/candidates/${layer}/${candidateId}/promote`, {});
+        appendMessage("system", `Memory ${layer}/${candidateId} 已晋升。`);
+        await loadMemoryCandidates();
+      } catch (err) {
+        showError(err.message);
+      }
     }
 
     async function showRun(runId) {
@@ -288,7 +348,10 @@
       document.getElementById("approval-approve").addEventListener("click", () => resolveApproval(true));
       document.getElementById("approval-deny").addEventListener("click", () => resolveApproval(false));
       try {
-        await Promise.all([loadCatalog(), loadAgents(), loadRuns(), loadDrafts(), loadPendingApprovals()]);
+        await Promise.all([
+          loadCatalog(), loadAgents(), loadRuns(), loadDrafts(),
+          loadMemoryCandidates(), loadPendingApprovals(),
+        ]);
       } catch (err) {
         showError(err.message);
       }

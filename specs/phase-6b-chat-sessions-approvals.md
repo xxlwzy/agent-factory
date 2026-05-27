@@ -7,7 +7,7 @@
 ## 0. Goal
 
 - Persist chat sessions under `.agent-factory/sessions/` for multi-turn UI.
-- Pause runs on `confirm` permission decisions; user approves/denies in Web UI.
+- Pause runs on `confirm` permission decisions (including HTTP to domains outside the sandbox allowlist); user approves/denies in Web UI.
 - Resume agent loop after approval without re-routing.
 
 ## 1. Scope

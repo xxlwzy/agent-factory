@@ -8,6 +8,7 @@ from agent_factory.llm.messages import ChatTurn, FinalResponse, LLMRequest, Tool
 from agent_factory.permissions.guard import PermissionGuard, ToolRequest
 from agent_factory.runtime.states import RunResult, RunStatus
 from agent_factory.runtime.trace import RunTrace
+from agent_factory.skills.loader import load_skills_for_config
 from agent_factory.tools.registry import ToolRegistry, build_default_registry
 
 
@@ -36,11 +37,19 @@ class AgentRunner:
 
     def run(self, task: str, *, history: tuple[ChatTurn, ...] = ()) -> RunResult:
         self._trace.append("run_started", {"agent": self._config.meta.name, "task": task})
+        skill_context = self._resolve_skill_context(trace=True)
         messages: tuple[str, ...] = ()
 
         for turn in range(1, self._config.runtime.max_turns + 1):
             try:
-                response = self._llm.next_response(LLMRequest(task=task, messages=messages, history=history))
+                response = self._llm.next_response(
+                    LLMRequest(
+                        task=task,
+                        messages=messages,
+                        history=history,
+                        skill_context=skill_context,
+                    )
+                )
             except RuntimeError as error:
                 return self._fail(str(error))
 
@@ -147,10 +156,13 @@ class AgentRunner:
         messages = messages + (
             f"{pending_tool.tool}.{pending_tool.operation}:{pending_tool.target}={tool_result.output}",
         )
+        skill_context = self._resolve_skill_context(trace=False)
         start_turn = 1
         for turn in range(start_turn, self._config.runtime.max_turns + 1):
             try:
-                response = self._llm.next_response(LLMRequest(task=task, messages=messages, history=()))
+                response = self._llm.next_response(
+                    LLMRequest(task=task, messages=messages, history=(), skill_context=skill_context)
+                )
             except RuntimeError as error:
                 return self._fail(str(error))
 
@@ -212,6 +224,21 @@ class AgentRunner:
             )
 
         return self._fail("Max turns reached before final response.")
+
+    def _resolve_skill_context(self, *, trace: bool) -> str:
+        result = load_skills_for_config(self._config, self._workspace_root)
+        if trace:
+            if result.warnings:
+                self._trace.append("skills_warning", {"warnings": list(result.warnings)})
+            if result.skills or self._config.skills.enabled:
+                self._trace.append(
+                    "skills_loaded",
+                    {
+                        "skills": [skill.name for skill in result.skills],
+                        "enabled": list(self._config.skills.enabled),
+                    },
+                )
+        return result.skill_context
 
     def _fail(self, reason: str) -> RunResult:
         self._trace.append("run_failed", {"reason": reason})

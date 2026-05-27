@@ -72,7 +72,10 @@ class PermissionGuard:
 
     def _evaluate_http_sandbox(self, request: ToolRequest) -> PermissionDecision:
         if not is_domain_allowed(request.target, self._permissions.sandbox.domains):
-            return PermissionDecision("deny", "HTTP target domain is outside allowlist.")
+            return PermissionDecision(
+                "confirm",
+                "HTTP target domain is outside allowlist; confirm to allow this request.",
+            )
         return PermissionDecision("allow", "HTTP GET target domain is allowed.")
 
     def _evaluate_explicit_rules(self, request: ToolRequest) -> PermissionDecision | None:

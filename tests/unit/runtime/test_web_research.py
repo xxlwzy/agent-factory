@@ -63,7 +63,7 @@ def test_run_web_research_demo_writes_report_and_summary(tmp_path: Path) -> None
     assert result.learning.skill_draft_dir is not None
 
 
-def test_run_web_research_demo_blocks_disallowed_domain(tmp_path: Path) -> None:
+def test_run_web_research_demo_awaits_confirm_for_disallowed_domain(tmp_path: Path) -> None:
     config_path = _repo_root() / "configs/agents/web_researcher.yaml"
 
     result = run_web_research_demo(
@@ -74,7 +74,8 @@ def test_run_web_research_demo_blocks_disallowed_domain(tmp_path: Path) -> None:
         run_id="test-run-blocked",
     )
 
-    assert result.result.status == RunStatus.BLOCKED
+    assert result.result.status == RunStatus.AWAITING_CONFIRM
+    assert result.result.pending_tool is not None
     assert (tmp_path / ".agent-factory/runs/test-run-blocked/artifact/report.md").exists() is False
 
 

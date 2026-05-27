@@ -50,6 +50,16 @@ def create_handler_class(
                 if path == "/api/skills/drafts":
                     self._send_json(store.list_skill_drafts())
                     return
+                if path == "/api/memory/candidates/project":
+                    from agent_factory.api.memory import list_candidates_api
+
+                    self._send_json(list_candidates_api(workspace, "project", agents_dir=store.agents_dir))
+                    return
+                if path == "/api/memory/candidates/user":
+                    from agent_factory.api.memory import list_candidates_api
+
+                    self._send_json(list_candidates_api(workspace, "user", agents_dir=store.agents_dir))
+                    return
                 if path.startswith("/api/runs/") and path.endswith("/trace"):
                     run_id = path.removeprefix("/api/runs/").removesuffix("/trace")
                     self._send_json(store.read_trace(run_id))
@@ -121,6 +131,17 @@ def create_handler_class(
                 if approval_id:
                     self._handle_approval_post(approval_id, body)
                     return
+            if path.startswith("/api/skills/drafts/") and path.endswith("/enable"):
+                draft_id = path.removeprefix("/api/skills/drafts/").removesuffix("/enable").strip("/")
+                if draft_id:
+                    self._handle_enable_skill_draft(draft_id, body)
+                    return
+            if path.startswith("/api/memory/candidates/") and path.endswith("/promote"):
+                suffix = path.removeprefix("/api/memory/candidates/").removesuffix("/promote").strip("/")
+                layer, _, candidate_id = suffix.partition("/")
+                if layer and candidate_id:
+                    self._handle_promote_memory(layer, candidate_id)
+                    return
             self._send_error(HTTPStatus.NOT_FOUND, "Not found")
 
         def _handle_chat_post(self, body: dict[str, Any]) -> None:
@@ -145,6 +166,42 @@ def create_handler_class(
                 self._send_error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+
+        def _handle_enable_skill_draft(self, draft_id: str, body: dict[str, Any]) -> None:
+            try:
+                from agent_factory.api.skills import enable_skill_draft_api
+
+                skill_name = body.get("skill_name")
+                resolved_name = str(skill_name).strip() if skill_name else None
+                payload = enable_skill_draft_api(
+                    workspace,
+                    draft_id,
+                    skill_name=resolved_name,
+                )
+                self._send_json(payload)
+            except FileNotFoundError:
+                self._send_error(HTTPStatus.NOT_FOUND, "Draft not found")
+            except ValueError as error:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(error))
+
+        def _handle_promote_memory(self, layer: str, candidate_id: str) -> None:
+            try:
+                from agent_factory.api.memory import promote_candidate_api
+
+                if layer not in ("project", "user"):
+                    self._send_error(HTTPStatus.BAD_REQUEST, "layer must be project or user")
+                    return
+                payload = promote_candidate_api(
+                    workspace,
+                    layer,
+                    candidate_id,
+                    agents_dir=store.agents_dir,
+                )
+                self._send_json(payload)
+            except FileNotFoundError:
+                self._send_error(HTTPStatus.NOT_FOUND, "Candidate not found")
+            except ValueError as error:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(error))
 
         def _handle_approval_post(self, approval_id: str, body: dict[str, Any]) -> None:
             try:

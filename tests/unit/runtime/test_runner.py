@@ -8,6 +8,7 @@ from agent_factory.config.schema import (
     PermissionsConfig,
     RuntimeConfig,
     SandboxConfig,
+    SkillsConfig,
     ToolConfig,
 )
 from agent_factory.llm.fake import FakeLLMAdapter
@@ -17,6 +18,39 @@ from agent_factory.runtime.states import RunStatus
 from agent_factory.runtime.trace import RunTrace
 from agent_factory.tools.base import ToolResult
 from agent_factory.tools.registry import build_default_registry
+
+
+def test_runner_loads_skills_into_llm_request(tmp_path: Path) -> None:
+    skills_root = tmp_path / "configs" / "skills" / "demo-skill"
+    skills_root.mkdir(parents=True)
+    (skills_root / "SKILL.md").write_text(
+        "---\nname: demo-skill\ndescription: Demo skill body marker\n---\n\nAlways cite sources.\n",
+        encoding="utf-8",
+    )
+
+    captured: list[str] = []
+
+    class RecordingLLM(FakeLLMAdapter):
+        def next_response(self, request):
+            captured.append(request.skill_context)
+            return super().next_response(request)
+
+    runner = AgentRunner(
+        config=_config(tmp_path, enabled_skills=("demo-skill", "missing")),
+        llm=RecordingLLM([FinalResponse(content="done")]),
+        trace=RunTrace(tmp_path / "run-1"),
+        workspace_root=tmp_path,
+    )
+
+    result = runner.run(task="use skills")
+
+    assert result.status == RunStatus.COMPLETED
+    assert captured
+    assert "Demo skill body marker" in captured[0]
+    assert "Always cite sources" in captured[0]
+    events = _trace_events(tmp_path / "run-1")
+    assert any(event["type"] == "skills_loaded" for event in events)
+    assert any(event["type"] == "skills_warning" for event in events)
 
 
 def test_runner_completes_on_final_response(tmp_path: Path) -> None:
@@ -113,7 +147,7 @@ def test_runner_awaits_confirm_on_confirm_decision(tmp_path: Path) -> None:
     assert events[-2]["data"]["action"] == "confirm"
 
 
-def test_runner_blocks_on_deny_decision(tmp_path: Path) -> None:
+def test_runner_awaits_confirm_for_domain_outside_allowlist(tmp_path: Path) -> None:
     runner = AgentRunner(
         config=_config(tmp_path, http_domains=("example.com",)),
         llm=FakeLLMAdapter([ToolCallResponse(tool="http", operation="GET", target="https://evil.test/items")]),
@@ -123,11 +157,11 @@ def test_runner_blocks_on_deny_decision(tmp_path: Path) -> None:
 
     result = runner.run(task="read api")
 
-    assert result.status == RunStatus.BLOCKED
-    assert result.reason == "HTTP target domain is outside allowlist."
+    assert result.status == RunStatus.AWAITING_CONFIRM
+    assert "outside allowlist" in (result.reason or "")
     events = _trace_events(tmp_path / "run-1")
-    assert [event["type"] for event in events[-2:]] == ["permission_decision", "run_blocked"]
-    assert events[-1]["data"]["action"] == "deny"
+    assert [event["type"] for event in events[-2:]] == ["permission_decision", "approval_requested"]
+    assert events[-2]["data"]["action"] == "confirm"
 
 
 def test_runner_fails_when_adapter_is_exhausted(tmp_path: Path) -> None:
@@ -255,6 +289,7 @@ def _config(
     *,
     terminal_enabled: bool = False,
     browser_enabled: bool = False,
+    enabled_skills: tuple[str, ...] = (),
 ) -> AgentFactoryConfig:
     tools: dict[str, ToolConfig] = {
         "filesystem": ToolConfig(enabled=True),
@@ -275,6 +310,7 @@ def _config(
                 domains=http_domains,
             )
         ),
+        skills=SkillsConfig(enabled=enabled_skills),
     )
 
 

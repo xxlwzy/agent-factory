@@ -46,6 +46,9 @@ Each spec should declare one state near the top:
 | `phase-7a-terminal-tool.md` | Implemented | Sandbox terminal adapter (`run` operation, deny list). |
 | `phase-7b-browser-tool.md` | Implemented | Browser read/navigate via injectable fetcher. |
 | `phase-7c-policy-loader.md` | Implemented | Merge `configs/policies/*.yaml` via agent `policy:` field. |
+| `phase-8a-skill-loader.md` | Implemented | Load enabled skills from `configs/skills/*/SKILL.md`. |
+| `phase-8b-skill-enable.md` | Implemented | Promote skill drafts via API/UI to `configs/skills/`. |
+| `phase-8c-memory-promotion.md` | Implemented | Promote project/user memory candidates via API. |
 | `long-term-roadmap.md` | Active | Milestones M1–M5 and multi-agent coordination rules for Phase 7+. |
 | `future-roadmap.md` | Design Draft | Historical phase index; see `long-term-roadmap.md` for active planning. |
 

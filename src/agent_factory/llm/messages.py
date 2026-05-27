@@ -14,6 +14,7 @@ class LLMRequest:
     task: str
     messages: tuple[str, ...] = ()
     history: tuple[ChatTurn, ...] = ()
+    skill_context: str = ""
 
 
 @dataclass(frozen=True)
