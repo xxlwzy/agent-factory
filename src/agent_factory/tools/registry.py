@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_factory.config.schema import AgentFactoryConfig, ToolConfig
+from agent_factory.config.schema import AgentFactoryConfig, McpConfig, ToolConfig
+from agent_factory.mcp.adapter import McpHandler, McpTool
 from agent_factory.tools.base import ToolAdapter, ToolResult
 from agent_factory.tools.browser import BrowserFetcher, BrowserTool
 from agent_factory.tools.filesystem import FilesystemTool
@@ -38,6 +39,7 @@ def build_default_registry(
     http_fetcher: HttpFetcher | None = None,
     browser_fetcher: BrowserFetcher | None = None,
     terminal_runner: CommandRunner | None = None,
+    mcp_handlers: dict[str, McpHandler] | None = None,
 ) -> ToolRegistry:
     adapters: dict[str, ToolAdapter] = {
         "filesystem": FilesystemTool(workspace_root=workspace_root),
@@ -45,4 +47,26 @@ def build_default_registry(
         "terminal": TerminalTool(workspace_root=workspace_root, command_runner=terminal_runner),
         "browser": BrowserTool(fetcher=browser_fetcher),
     }
+    if config.mcp.tools:
+        adapters["mcp"] = McpTool(handlers=build_mcp_handlers(config.mcp, mcp_handlers))
     return ToolRegistry(adapters=adapters, enabled_tools=config.tools)
+
+
+def build_mcp_handlers(
+    mcp_config: McpConfig,
+    overrides: dict[str, McpHandler] | None = None,
+) -> dict[str, McpHandler]:
+    handlers: dict[str, McpHandler] = {}
+    for descriptor in mcp_config.tools:
+        if overrides and descriptor.name in overrides:
+            handlers[descriptor.name] = overrides[descriptor.name]
+        else:
+            handlers[descriptor.name] = _missing_mcp_handler(descriptor.name)
+    return handlers
+
+
+def _missing_mcp_handler(name: str) -> McpHandler:
+    def handler(operation: str, target: str, content: str) -> ToolResult:
+        return ToolResult(success=False, error=f"MCP tool '{name}' has no runtime handler configured.")
+
+    return handler

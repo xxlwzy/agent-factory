@@ -3,12 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_factory.config.schema import AgentFactoryConfig
+from agent_factory.hooks.runner import HookRunner
 from agent_factory.llm.base import LLMAdapter
 from agent_factory.llm.messages import ChatTurn, FinalResponse, LLMRequest, ToolCallResponse
 from agent_factory.permissions.guard import PermissionGuard, ToolRequest
 from agent_factory.runtime.states import RunResult, RunStatus
 from agent_factory.runtime.trace import RunTrace
 from agent_factory.skills.loader import load_skills_for_config
+from agent_factory.tools.base import ToolResult
 from agent_factory.tools.registry import ToolRegistry, build_default_registry
 
 
@@ -20,6 +22,7 @@ class AgentRunner:
         trace: RunTrace,
         workspace_root: str | Path,
         tool_registry: ToolRegistry | None = None,
+        hook_runner: HookRunner | None = None,
     ) -> None:
         self._config = config
         self._llm = llm
@@ -34,6 +37,7 @@ class AgentRunner:
             config,
             self._workspace_root,
         )
+        self._hook_runner = hook_runner or HookRunner(config.hooks, workspace_root=self._workspace_root)
 
     def run(self, task: str, *, history: tuple[ChatTurn, ...] = ()) -> RunResult:
         self._trace.append("run_started", {"agent": self._config.meta.name, "task": task})
@@ -56,8 +60,7 @@ class AgentRunner:
             self._trace.append("llm_response", _response_trace_data(response, turn))
 
             if isinstance(response, FinalResponse):
-                self._trace.append("run_completed", {"output": response.content, "turn": turn})
-                return RunResult(status=RunStatus.COMPLETED, output=response.content)
+                return self._complete_run(task=task, output=response.content, turn=turn)
 
             decision = self._permission_guard.evaluate(
                 ToolRequest(tool=response.tool, operation=response.operation, target=response.target)
@@ -86,28 +89,11 @@ class AgentRunner:
                 self._trace.append("run_blocked", decision_data)
                 return RunResult(status=RunStatus.BLOCKED, reason=decision.reason)
 
-            tool_result = self._tool_registry.execute(
-                response.tool,
-                response.operation,
-                response.target,
-                content=response.content,
-            )
-            self._trace.append(
-                "tool_executed",
-                {
-                    "tool": response.tool,
-                    "operation": response.operation,
-                    "target": response.target,
-                    "success": tool_result.success,
-                    "output": tool_result.output,
-                    "error": tool_result.error,
-                    "turn": turn,
-                },
-            )
-            if not tool_result.success:
-                return self._fail(tool_result.error or "Tool execution failed.")
+            tool_outcome = self._execute_tool_with_hooks(response, turn=turn)
+            if isinstance(tool_outcome, RunResult):
+                return tool_outcome
             messages = messages + (
-                f"{response.tool}.{response.operation}:{response.target}={tool_result.output}",
+                f"{response.tool}.{response.operation}:{response.target}={tool_outcome.output}",
             )
 
         return self._fail("Max turns reached before final response.")
@@ -124,12 +110,6 @@ class AgentRunner:
             self._trace.append("approval_denied", {"tool": pending_tool.tool, "target": pending_tool.target})
             return RunResult(status=RunStatus.BLOCKED, reason="User denied the tool action.")
 
-        tool_result = self._tool_registry.execute(
-            pending_tool.tool,
-            pending_tool.operation,
-            pending_tool.target,
-            content=pending_tool.content,
-        )
         self._trace.append(
             "approval_granted",
             {
@@ -138,23 +118,12 @@ class AgentRunner:
                 "target": pending_tool.target,
             },
         )
-        self._trace.append(
-            "tool_executed",
-            {
-                "tool": pending_tool.tool,
-                "operation": pending_tool.operation,
-                "target": pending_tool.target,
-                "success": tool_result.success,
-                "output": tool_result.output,
-                "error": tool_result.error,
-                "turn": 0,
-            },
-        )
-        if not tool_result.success:
-            return self._fail(tool_result.error or "Tool execution failed after approval.")
+        tool_outcome = self._execute_tool_with_hooks(pending_tool, turn=0)
+        if isinstance(tool_outcome, RunResult):
+            return tool_outcome
 
         messages = messages + (
-            f"{pending_tool.tool}.{pending_tool.operation}:{pending_tool.target}={tool_result.output}",
+            f"{pending_tool.tool}.{pending_tool.operation}:{pending_tool.target}={tool_outcome.output}",
         )
         skill_context = self._resolve_skill_context(trace=False)
         start_turn = 1
@@ -169,8 +138,7 @@ class AgentRunner:
             self._trace.append("llm_response", _response_trace_data(response, turn))
 
             if isinstance(response, FinalResponse):
-                self._trace.append("run_completed", {"output": response.content, "turn": turn})
-                return RunResult(status=RunStatus.COMPLETED, output=response.content)
+                return self._complete_run(task=task, output=response.content, turn=turn)
 
             decision = self._permission_guard.evaluate(
                 ToolRequest(tool=response.tool, operation=response.operation, target=response.target)
@@ -199,31 +167,86 @@ class AgentRunner:
                 self._trace.append("run_blocked", decision_data)
                 return RunResult(status=RunStatus.BLOCKED, reason=decision.reason)
 
-            tool_result = self._tool_registry.execute(
-                response.tool,
-                response.operation,
-                response.target,
-                content=response.content,
-            )
-            self._trace.append(
-                "tool_executed",
-                {
-                    "tool": response.tool,
-                    "operation": response.operation,
-                    "target": response.target,
-                    "success": tool_result.success,
-                    "output": tool_result.output,
-                    "error": tool_result.error,
-                    "turn": turn,
-                },
-            )
-            if not tool_result.success:
-                return self._fail(tool_result.error or "Tool execution failed.")
+            tool_outcome = self._execute_tool_with_hooks(response, turn=turn)
+            if isinstance(tool_outcome, RunResult):
+                return tool_outcome
             messages = messages + (
-                f"{response.tool}.{response.operation}:{response.target}={tool_result.output}",
+                f"{response.tool}.{response.operation}:{response.target}={tool_outcome.output}",
             )
 
         return self._fail("Max turns reached before final response.")
+
+    def _execute_tool_with_hooks(
+        self,
+        response: ToolCallResponse,
+        *,
+        turn: int,
+    ) -> ToolResult | RunResult:
+        if self._hook_runner.has_hooks():
+            pre = self._hook_runner.run_pre_tool_use(
+                tool=response.tool,
+                operation=response.operation,
+                target=response.target,
+                run_id=self._run_id(),
+            )
+            if not pre.success:
+                return self._hook_failed("PreToolUse", pre.error or "PreToolUse hook failed.", turn=turn)
+
+        tool_result = self._tool_registry.execute(
+            response.tool,
+            response.operation,
+            response.target,
+            content=response.content,
+        )
+        self._trace.append(
+            "tool_executed",
+            {
+                "tool": response.tool,
+                "operation": response.operation,
+                "target": response.target,
+                "success": tool_result.success,
+                "output": tool_result.output,
+                "error": tool_result.error,
+                "turn": turn,
+            },
+        )
+        if not tool_result.success:
+            return self._fail(tool_result.error or "Tool execution failed.")
+
+        if self._hook_runner.has_hooks():
+            post = self._hook_runner.run_post_tool_use(
+                tool=response.tool,
+                operation=response.operation,
+                target=response.target,
+                run_id=self._run_id(),
+            )
+            if not post.success:
+                return self._hook_failed("PostToolUse", post.error or "PostToolUse hook failed.", turn=turn)
+
+        return tool_result
+
+    def _complete_run(self, *, task: str, output: str, turn: int) -> RunResult:
+        if self._hook_runner.has_hooks():
+            completed = self._hook_runner.run_run_completed(
+                task=task,
+                output=output,
+                run_id=self._run_id(),
+            )
+            if not completed.success:
+                return self._hook_failed(
+                    "RunCompleted",
+                    completed.error or "RunCompleted hook failed.",
+                    turn=turn,
+                )
+        self._trace.append("run_completed", {"output": output, "turn": turn})
+        return RunResult(status=RunStatus.COMPLETED, output=output)
+
+    def _hook_failed(self, event: str, reason: str, *, turn: int) -> RunResult:
+        self._trace.append("hook_failed", {"event": event, "reason": reason, "turn": turn})
+        return RunResult(status=RunStatus.BLOCKED, reason=reason)
+
+    def _run_id(self) -> str:
+        return self._trace.run_dir.name
 
     def _resolve_skill_context(self, *, trace: bool) -> str:
         result = load_skills_for_config(self._config, self._workspace_root)

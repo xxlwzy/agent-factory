@@ -21,7 +21,7 @@ Agent Factory 已完成「单 agent + 工具 + 演示 + 学习草稿 + 本地 AP
 | Phase 6 | Implemented | 对话路由、YAML 专家委托 | `tests/unit/runtime/test_chat.py`, `routing/` |
 | Phase 6b | Implemented | 多轮 session、confirm 审批、UI 批准/拒绝 | `tests/unit/runtime/test_session_and_approval.py` |
 
-**全量门控：** `python -m pytest tests/unit -v` → **83 passed**（含 M1–M2）
+**全量门控：** `python -m pytest tests/unit -v` → **93 passed**（含 M1–M3）
 
 ### 1.1 已有但尚未「产品级」的能力
 
@@ -32,7 +32,8 @@ Agent Factory 已完成「单 agent + 工具 + 演示 + 学习草稿 + 本地 AP
 | Policy 复用 | `policy:` 引用 + `policy_loader` 合并 | 多 policy 链式继承 |
 | Skill 生命周期 | loader + enable API；draft → `configs/skills/` | 自动从 run 提炼 skill |
 | Memory 写入 | session 归档 + API 晋升 project/user | 向量检索、冲突合并 |
-| Team / Scheduler / Hooks / MCP | schema 可 mock | 无真实执行 |
+| Team | schema 可 mock | 无真实执行 |
+| Scheduler / Hooks / MCP | interval 调度、shell hooks、MCP registry | cron、真实 MCP transport、team |
 
 ## 2. 长期目标架构（目标态）
 
@@ -90,7 +91,7 @@ flowchart TB
 |--------|------|------|------------|
 | **M1** | 工具面补齐 | Terminal + Browser + Policy 加载 | **Implemented**（2026-05-27） |
 | **M2** | 学习闭环 | Skill 加载/启用、Memory 晋升 | **Implemented**（2026-05-27） |
-| **M3** | 自主与扩展 | Hooks、Scheduler、MCP | 高（3 条独立 track） |
+| **M3** | 自主与扩展 | Hooks、Scheduler、MCP | **Implemented**（2026-05-27） |
 | **M4** | 多 Agent 协作 | Team YAML、Message Bus、编排 | 低（强顺序依赖） |
 | **M5** | 产品化 | CLI、文档、打包、可观测性 | 高 |
 

@@ -4,13 +4,18 @@ from pathlib import Path
 from agent_factory.config.schema import (
     AgentConfig,
     AgentFactoryConfig,
+    HookEntry,
+    HooksConfig,
     MetaConfig,
+    McpConfig,
+    McpToolDescriptor,
     PermissionsConfig,
     RuntimeConfig,
     SandboxConfig,
     SkillsConfig,
     ToolConfig,
 )
+from agent_factory.hooks.runner import HookRunner
 from agent_factory.llm.fake import FakeLLMAdapter
 from agent_factory.llm.messages import FinalResponse, ToolCallResponse
 from agent_factory.runtime.runner import AgentRunner
@@ -18,6 +23,70 @@ from agent_factory.runtime.states import RunStatus
 from agent_factory.runtime.trace import RunTrace
 from agent_factory.tools.base import ToolResult
 from agent_factory.tools.registry import build_default_registry
+
+
+def test_runner_blocks_tool_when_pre_tool_hook_fails(tmp_path: Path) -> None:
+    def failing_runner(command: tuple[str, ...], env: dict[str, str]):
+        from agent_factory.hooks.runner import HookResult
+
+        return HookResult(success=False, error="blocked by hook")
+
+    hooks = HooksConfig(pre_tool_use=(HookEntry(command=("false",)),))
+    hook_runner = HookRunner(hooks, workspace_root=tmp_path, command_runner=failing_runner)
+    runner = AgentRunner(
+        config=_config(tmp_path),
+        llm=FakeLLMAdapter(
+            [ToolCallResponse(tool="filesystem", operation="read", target=str(tmp_path / "x.txt"))]
+        ),
+        trace=RunTrace(tmp_path / "run-1"),
+        workspace_root=tmp_path,
+        hook_runner=hook_runner,
+    )
+    (tmp_path / "x.txt").write_text("hi", encoding="utf-8")
+
+    result = runner.run(task="read file")
+
+    assert result.status == RunStatus.BLOCKED
+    assert "hook" in (result.reason or "").lower()
+    events = _trace_events(tmp_path / "run-1")
+    assert any(event["type"] == "hook_failed" for event in events)
+
+
+def test_runner_executes_mcp_tool_after_approval(tmp_path: Path) -> None:
+    config = _config(tmp_path, mcp_enabled=True)
+    registry = build_default_registry(
+        config,
+        tmp_path,
+        mcp_handlers={
+            "search": lambda operation, target, content: ToolResult(success=True, output=f"result:{target}"),
+        },
+    )
+    runner = AgentRunner(
+        config=config,
+        llm=FakeLLMAdapter(
+            [
+                ToolCallResponse(tool="mcp", operation="search", target="query"),
+                FinalResponse(content="done"),
+            ]
+        ),
+        trace=RunTrace(tmp_path / "run-1"),
+        workspace_root=tmp_path,
+        tool_registry=registry,
+    )
+
+    paused = runner.run(task="search")
+    assert paused.status == RunStatus.AWAITING_CONFIRM
+    result = runner.continue_from_approval(
+        task="search",
+        messages=(),
+        pending_tool=paused.pending_tool,
+        approved=True,
+    )
+
+    assert result.status == RunStatus.COMPLETED
+    events = _trace_events(tmp_path / "run-1")
+    executed = next(event for event in events if event["type"] == "tool_executed")
+    assert executed["data"]["output"] == "result:query"
 
 
 def test_runner_loads_skills_into_llm_request(tmp_path: Path) -> None:
@@ -290,6 +359,7 @@ def _config(
     terminal_enabled: bool = False,
     browser_enabled: bool = False,
     enabled_skills: tuple[str, ...] = (),
+    mcp_enabled: bool = False,
 ) -> AgentFactoryConfig:
     tools: dict[str, ToolConfig] = {
         "filesystem": ToolConfig(enabled=True),
@@ -299,6 +369,8 @@ def _config(
         tools["terminal"] = ToolConfig(enabled=True)
     if browser_enabled:
         tools["browser"] = ToolConfig(enabled=True)
+    if mcp_enabled:
+        tools["mcp"] = ToolConfig(enabled=True)
     return AgentFactoryConfig(
         meta=MetaConfig(name="test_agent"),
         agent=AgentConfig(role="tester", model="fake", system_prompt="test"),
@@ -311,6 +383,7 @@ def _config(
             )
         ),
         skills=SkillsConfig(enabled=enabled_skills),
+        mcp=McpConfig(tools=(McpToolDescriptor(name="search", description="search"),)) if mcp_enabled else McpConfig(),
     )
 
 

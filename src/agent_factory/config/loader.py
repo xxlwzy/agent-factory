@@ -8,9 +8,15 @@ import yaml
 from agent_factory.config.schema import (
     AgentConfig,
     AgentFactoryConfig,
+    AutomationConfig,
+    HookEntry,
+    HooksConfig,
+    McpConfig,
+    McpToolDescriptor,
     MemoryConfig,
     MetaConfig,
     RuntimeConfig,
+    ScheduleConfig,
     SkillsConfig,
     ToolConfig,
 )
@@ -37,6 +43,11 @@ def load_agent_config(path: str | Path) -> AgentFactoryConfig:
         permissions=resolve_agent_permissions(config_path, permissions_raw, policy_name),
         memory=_parse_memory(_mapping(raw.get("memory", {}), "memory")),
         skills=_parse_skills(_mapping(raw.get("skills", {}), "skills")),
+        hooks=_parse_hooks(_mapping(raw.get("hooks", {}), "hooks") if "hooks" in raw else {}),
+        automation=_parse_automation(
+            _mapping(raw.get("automation", {}), "automation") if "automation" in raw else {}
+        ),
+        mcp=_parse_mcp(_mapping(raw.get("mcp", {}), "mcp") if "mcp" in raw else {}),
         unsupported_warnings=collect_unsupported_warnings(raw),
     )
 
@@ -117,3 +128,73 @@ def _parse_skills(raw: dict[str, Any]) -> SkillsConfig:
         enabled=tuple(str(skill) for skill in raw.get("enabled", ())),
         draft_output_dir=str(raw.get("draft_output_dir", ".agent-factory/skills/drafts")),
     )
+
+
+def _parse_hooks(raw: dict[str, Any]) -> HooksConfig:
+    return HooksConfig(
+        pre_tool_use=_parse_hook_entries(raw.get("PreToolUse"), "hooks.PreToolUse"),
+        post_tool_use=_parse_hook_entries(raw.get("PostToolUse"), "hooks.PostToolUse"),
+        run_completed=_parse_hook_entries(raw.get("RunCompleted"), "hooks.RunCompleted"),
+    )
+
+
+def _parse_hook_entries(value: Any, name: str) -> tuple[HookEntry, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a list.")
+    entries: list[HookEntry] = []
+    for index, item in enumerate(value):
+        item_raw = _mapping(item, f"{name}[{index}]")
+        command_raw = item_raw.get("command")
+        if not isinstance(command_raw, list) or not command_raw:
+            raise ValueError(f"{name}[{index}].command must be a non-empty list.")
+        entries.append(HookEntry(command=tuple(str(part) for part in command_raw)))
+    return tuple(entries)
+
+
+def _parse_automation(raw: dict[str, Any]) -> AutomationConfig:
+    schedules_raw = raw.get("schedules")
+    if schedules_raw is None:
+        return AutomationConfig()
+    if not isinstance(schedules_raw, list):
+        raise ValueError("automation.schedules must be a list.")
+    schedules: list[ScheduleConfig] = []
+    for index, item in enumerate(schedules_raw):
+        item_raw = _mapping(item, f"automation.schedules[{index}]")
+        name = str(item_raw.get("name", "")).strip()
+        task = str(item_raw.get("task", "")).strip()
+        if not name:
+            raise ValueError(f"automation.schedules[{index}].name is required.")
+        if not task:
+            raise ValueError(f"automation.schedules[{index}].task is required.")
+        schedules.append(
+            ScheduleConfig(
+                name=name,
+                interval_seconds=int(item_raw.get("interval_seconds", 0)),
+                task=task,
+            )
+        )
+    return AutomationConfig(schedules=tuple(schedules))
+
+
+def _parse_mcp(raw: dict[str, Any]) -> McpConfig:
+    tools_raw = raw.get("tools")
+    if tools_raw is None:
+        return McpConfig()
+    if not isinstance(tools_raw, list):
+        raise ValueError("mcp.tools must be a list.")
+    tools: list[McpToolDescriptor] = []
+    for index, item in enumerate(tools_raw):
+        item_raw = _mapping(item, f"mcp.tools[{index}]")
+        name = str(item_raw.get("name", "")).strip()
+        if not name:
+            raise ValueError(f"mcp.tools[{index}].name is required.")
+        tools.append(
+            McpToolDescriptor(
+                name=name,
+                description=str(item_raw.get("description", "")),
+                operation=str(item_raw.get("operation", "invoke")),
+            )
+        )
+    return McpConfig(tools=tuple(tools))

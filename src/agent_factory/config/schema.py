@@ -58,6 +58,42 @@ class SkillsConfig:
 
 
 @dataclass(frozen=True)
+class HookEntry:
+    command: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class HooksConfig:
+    pre_tool_use: tuple[HookEntry, ...] = ()
+    post_tool_use: tuple[HookEntry, ...] = ()
+    run_completed: tuple[HookEntry, ...] = ()
+
+
+@dataclass(frozen=True)
+class ScheduleConfig:
+    name: str
+    interval_seconds: int
+    task: str
+
+
+@dataclass(frozen=True)
+class AutomationConfig:
+    schedules: tuple[ScheduleConfig, ...] = ()
+
+
+@dataclass(frozen=True)
+class McpToolDescriptor:
+    name: str
+    description: str = ""
+    operation: str = "invoke"
+
+
+@dataclass(frozen=True)
+class McpConfig:
+    tools: tuple[McpToolDescriptor, ...] = ()
+
+
+@dataclass(frozen=True)
 class AgentFactoryConfig:
     meta: MetaConfig
     agent: AgentConfig
@@ -66,4 +102,7 @@ class AgentFactoryConfig:
     permissions: PermissionsConfig
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
+    hooks: HooksConfig = field(default_factory=HooksConfig)
+    automation: AutomationConfig = field(default_factory=AutomationConfig)
+    mcp: McpConfig = field(default_factory=McpConfig)
     unsupported_warnings: tuple[str, ...] = ()

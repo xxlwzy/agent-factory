@@ -7,13 +7,14 @@ EXECUTABLE_TOP_LEVEL_SECTIONS = {
     "memory",
     "skills",
     "policy",
+    "hooks",
+    "automation",
+    "mcp",
 }
 
 MOCKED_TOP_LEVEL_SECTIONS = {
     "workflow",
     "team",
-    "automation",
-    "hooks",
     "notifications",
 }
 

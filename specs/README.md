@@ -49,6 +49,9 @@ Each spec should declare one state near the top:
 | `phase-8a-skill-loader.md` | Implemented | Load enabled skills from `configs/skills/*/SKILL.md`. |
 | `phase-8b-skill-enable.md` | Implemented | Promote skill drafts via API/UI to `configs/skills/`. |
 | `phase-8c-memory-promotion.md` | Implemented | Promote project/user memory candidates via API. |
+| `phase-9a-hooks.md` | Implemented | PreToolUse/PostToolUse/RunCompleted shell hooks (fail-closed). |
+| `phase-9b-scheduler.md` | Implemented | Interval schedules trigger AgentRunner runs. |
+| `phase-9c-mcp-routing.md` | Implemented | MCP descriptors → ToolRequest + registry adapter. |
 | `long-term-roadmap.md` | Active | Milestones M1–M5 and multi-agent coordination rules for Phase 7+. |
 | `future-roadmap.md` | Design Draft | Historical phase index; see `long-term-roadmap.md` for active planning. |
 
