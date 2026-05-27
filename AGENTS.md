@@ -10,9 +10,10 @@ Agent Factory is a local-first personal agent harness. The first product directi
 
 1. `README.md` for the short project overview.
 2. `specs/README.md` for the feature/spec index and document rules.
-3. The active feature spec under `specs/`, usually the highest phase number or the file named by the user.
-4. Relevant implementation plans under `docs/superpowers/plans/` when executing a planned task.
-5. Source files and tests only after understanding the current spec.
+3. `specs/long-term-roadmap.md` when planning Phase 7+ or parallel agent work.
+4. The active feature spec under `specs/`, usually the highest phase number or the file named by the user.
+5. Relevant implementation plans under `docs/superpowers/plans/` when executing a planned task.
+6. Source files and tests only after understanding the current spec.
 
 ## Current Architecture Boundaries
 

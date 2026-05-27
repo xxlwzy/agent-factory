@@ -47,13 +47,9 @@ Entry points: `run_chat()`, `POST /api/chat`, Web UI chat panel on http://127.0.
 
 ## 7. Later Features
 
-These remain future design topics:
+Active planning has moved to:
 
-- Agent team YAML.
-- Async message bus and inbox/outbox.
-- Scheduler and autonomous runs.
-- Hooks lifecycle.
-- MCP capability integration.
-- Worktree isolation for coding-oriented agents.
+- `specs/long-term-roadmap.md` — milestones M1–M5
+- `docs/superpowers/plans/2026-05-27-parallel-development-tracks.md` — parallel work packages for multi-agent development
 
-Each item should become a dedicated spec before implementation.
+Topics still open: agent teams, message bus, scheduler, hooks, MCP, terminal/browser execution, skill/memory promotion, worktree isolation.
