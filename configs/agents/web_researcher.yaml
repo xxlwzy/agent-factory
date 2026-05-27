@@ -1,0 +1,33 @@
+meta:
+  name: web_researcher
+  version: "0.1"
+  description: Reads web pages and writes Markdown summaries.
+agent:
+  role: Web research assistant
+  model: fake-model
+  system_prompt: |
+    You read web content, extract key facts, and write concise Markdown reports.
+runtime:
+  max_turns: 12
+  working_dir: .
+  output_dir: .agent-factory/runs
+tools:
+  filesystem:
+    enabled: true
+  terminal:
+    enabled: false
+  browser:
+    enabled: true
+  http:
+    enabled: true
+permissions:
+  sandbox:
+    paths:
+      - .
+      - .agent-factory/runs
+    domains:
+      - example.com
+workflow:
+  mock: true
+team:
+  mock: true

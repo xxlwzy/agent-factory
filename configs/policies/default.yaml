@@ -1,0 +1,12 @@
+permissions:
+  sandbox:
+    paths:
+      - .
+      - .agent-factory/runs
+    domains:
+      - example.com
+  confirm:
+    - browser.submit
+    - http.write
+  deny:
+    - terminal.dangerous
