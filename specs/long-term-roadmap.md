@@ -21,7 +21,7 @@ Agent Factory 已完成「单 agent + 工具 + 演示 + 学习草稿 + 本地 AP
 | Phase 6 | Implemented | 对话路由、YAML 专家委托 | `tests/unit/runtime/test_chat.py`, `routing/` |
 | Phase 6b | Implemented | 多轮 session、confirm 审批、UI 批准/拒绝 | `tests/unit/runtime/test_session_and_approval.py` |
 
-**全量门控：** `python -m pytest tests/unit -v` → **98 passed**（含 M1–M4）
+**全量门控：** `python -m pytest tests/unit -v` → **121 passed**（含 M1–M4.5 / Phase 11）
 
 ### 1.1 已有但尚未「产品级」的能力
 
@@ -32,7 +32,7 @@ Agent Factory 已完成「单 agent + 工具 + 演示 + 学习草稿 + 本地 AP
 | Policy 复用 | `policy:` 引用 + `policy_loader` 合并 | 多 policy 链式继承 |
 | Skill 生命周期 | loader + enable API；draft → `configs/skills/` | 自动从 run 提炼 skill |
 | Memory 写入 | session 归档 + API 晋升 project/user | 向量检索、冲突合并 |
-| Team | YAML team + MessageBus + pipeline runner | 分布式 bus、异步多 run |
+| Team | M4 pipeline MVP + M4.5 场景编排（`orchestrator_runner`、`run_chat`） | LiteLLM 结构化 scenario 路由；分布式 bus |
 | Scheduler / Hooks / MCP | interval 调度、shell hooks、MCP registry | cron、真实 MCP transport、team |
 
 ## 2. 长期目标架构（目标态）
@@ -92,7 +92,8 @@ flowchart TB
 | **M1** | 工具面补齐 | Terminal + Browser + Policy 加载 | **Implemented**（2026-05-27） |
 | **M2** | 学习闭环 | Skill 加载/启用、Memory 晋升 | **Implemented**（2026-05-27） |
 | **M3** | 自主与扩展 | Hooks、Scheduler、MCP | **Implemented**（2026-05-27） |
-| **M4** | 多 Agent 协作 | Team YAML、Message Bus、编排 | **Implemented**（2026-05-27） |
+| **M4** | 多 Agent 协作（pipeline MVP） | Team YAML、Message Bus、顺序 pipeline | **Implemented**（2026-05-27） |
+| **M4.5** | 场景化 Team + 动态编排 | Scenario、只读 Orchestrator、delegate、Router 并行 | **Implemented**（2026-05-27；见 `phase-11-agent-team-architecture.md`） |
 | **M5** | 产品化 | CLI、文档、打包、可观测性 | 高 |
 
 详细工作包编号与文件边界见：`docs/superpowers/plans/2026-05-27-parallel-development-tracks.md`。
@@ -128,15 +129,25 @@ flowchart TB
 
 **验收：** 定时任务产生 run 目录；hook 失败 fail-closed；MCP 工具走 guard。
 
-### M4 — 多 Agent 协作（Phase 10）
+### M4 — 多 Agent 协作（Phase 10，pipeline MVP）
 
-**目标：** YAML 定义 team，异步 mailbox 协作。
+**目标：** YAML 定义 team，异步 mailbox，**固定 pipeline** 顺序执行。
 
-顺序建议：schema → bus → handoff protocol → team runner。
+**已实现：** `phase-10a/b/c`；`configs/teams/research_report.yaml` demo。
 
 **验收：** 两 agent 完成「研究 + 写报告」分工 demo；trace 可关联 message id。
 
-### M5 — 产品化（Phase 11+）
+### M4.5 — 场景化 Team + 动态编排（Phase 11）
+
+**目标：** 每业务场景一组 team；只读 Orchestrator **动态派活**；Router 两层入口，多任务时**默认并行**跨场景；通用/专属 tool 全局唯一名；与单 agent 专家并存。
+
+**单一真源：** `specs/phase-11-agent-team-architecture.md`
+
+**已实现：** `ScenarioCatalog`、`team.delegate`、`orchestrator_runner`、`multi_scenario`、`ScenarioAwareRoutingResolver`、`configs/scenarios/research-report/`。
+
+**验收：** Orchestrator 无写文件 tool；`team.delegate` + Bus trace；规则路由并行多 `scenario_id` + summary-only 汇总；`scenario_id` + 本地化 `display_name`；`run_chat` scenario / multi_scenario 路径。
+
+### M5 — 产品化（Phase 12+）
 
 - 统一 CLI（`agent-factory run|chat|demo`）
 - 安装/发布（pyproject entry points）
@@ -165,7 +176,11 @@ flowchart TB
   WP-M3-C MCP routing
 
 串行链:
-  WP-M4-A → WP-M4-B → WP-M4-C（Team）
+  WP-M4-A → WP-M4-B → WP-M4-C（Team pipeline MVP）
+
+Phase 11（M4.5）建议顺序:
+  scenario schema → team.delegate → orchestrator loop → Router 多场景并行
+  详见 `docs/superpowers/plans/2026-05-27-phase-11-scenario-teams.md`
 ```
 
 ## 6. 多 Agent 协作开发约定

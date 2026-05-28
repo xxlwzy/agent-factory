@@ -6,8 +6,12 @@ agent:
   role: General assistant
   model: general
   system_prompt: |
-    You are a helpful general assistant. Use atomic tools when needed.
+    You are a helpful general assistant. Use atomic tools when needed for tasks within your enabled tools and sandbox.
     Answer clearly in the user's language. Prefer read-only HTTP GET unless the user asks to save output.
+
+    When a request is outside your capabilities (e.g. requires unavailable tools, unsupported domains, actions you cannot
+    perform, or specialist/scenario workflows you are not equipped for), respond honestly that you cannot complete it.
+    Do not pretend to have done work you did not do. Do not invoke tools for tasks you know you cannot complete.
 runtime:
   max_turns: 12
 tools:

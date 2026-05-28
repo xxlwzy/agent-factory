@@ -56,6 +56,12 @@ class PermissionGuard:
                 return PermissionDecision("confirm", "HTTP write operation requires confirmation.")
             return sandbox_decision
 
+        if request.tool == "team" and request.operation.lower() == "delegate":
+            rule_decision = self._evaluate_explicit_rules(request)
+            if rule_decision is not None:
+                return rule_decision
+            return PermissionDecision("allow", "Team delegate is allowed when team tool is enabled.")
+
         rule_decision = self._evaluate_explicit_rules(request)
         if rule_decision is not None:
             return rule_decision

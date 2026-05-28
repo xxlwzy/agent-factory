@@ -1,0 +1,4 @@
+# Scenario-specific tools for research-report (global unique names).
+tools:
+  research.fetch_source:
+    enabled: true

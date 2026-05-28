@@ -55,6 +55,7 @@ Each spec should declare one state near the top:
 | `phase-10a-team-schema.md` | Implemented | Parse `configs/teams/*.yaml` members and pipeline. |
 | `phase-10b-message-bus.md` | Implemented | In-memory team message bus with message ids. |
 | `phase-10c-team-runner.md` | Implemented | Sequential team pipeline demo (research → report). |
+| `phase-11-agent-team-architecture.md` | Implemented | Scenario-based teams, orchestrator dynamic delegate, Router modes, `run_chat` integration. |
 | `long-term-roadmap.md` | Active | Milestones M1–M5 and multi-agent coordination rules for Phase 7+. |
 | `future-roadmap.md` | Design Draft | Historical phase index; see `long-term-roadmap.md` for active planning. |
 

@@ -1,0 +1,29 @@
+meta:
+  name: research_report_writer
+  version: "0.1"
+  description: Writes Markdown reports from research notes.
+agent:
+  role: Report writer teammate
+  model: fake-model
+  system_prompt: |
+    You write clear Markdown reports from research notes provided by the orchestrator or bus handoff.
+    Save reports under the run artifact path when asked.
+runtime:
+  max_turns: 10
+tools:
+  filesystem:
+    enabled: true
+  http:
+    enabled: false
+  browser:
+    enabled: false
+  terminal:
+    enabled: false
+  team:
+    enabled: false
+permissions:
+  sandbox:
+    paths:
+      - .
+      - .agent-factory/runs
+    domains: []

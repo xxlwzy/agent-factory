@@ -15,6 +15,7 @@ class TeamMessage:
     task_ref: str
     payload: str
     status: MessageStatus = "pending"
+    scenario_id: str = ""
 
 
 @dataclass
@@ -30,6 +31,7 @@ class MessageBus:
         task_ref: str,
         payload: str,
         message_id: str | None = None,
+        scenario_id: str = "",
     ) -> TeamMessage:
         message = TeamMessage(
             message_id=message_id or uuid.uuid4().hex[:12],
@@ -38,6 +40,7 @@ class MessageBus:
             task_ref=task_ref,
             payload=payload,
             status="pending",
+            scenario_id=scenario_id,
         )
         self._by_id[message.message_id] = message
         self._inboxes.setdefault(receiver, []).append(message)
@@ -55,6 +58,7 @@ class MessageBus:
                     task_ref=message.task_ref,
                     payload=message.payload,
                     status="delivered",
+                    scenario_id=message.scenario_id,
                 )
                 self._by_id[message.message_id] = updated
                 delivered.append(updated)
@@ -73,6 +77,7 @@ class MessageBus:
             task_ref=message.task_ref,
             payload=message.payload,
             status="processed",
+            scenario_id=message.scenario_id,
         )
         self._by_id[message_id] = updated
         inbox = self._inboxes.get(message.receiver, [])

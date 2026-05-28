@@ -1,0 +1,13 @@
+meta:
+  name: research-report
+  description: Researcher gathers facts; writer produces the final report.
+id: research-report
+display_name: 研究报告
+description: 调研来源并撰写 Markdown 报告
+entry: orchestrator.yaml
+single_agent_fallback: web_researcher.yaml
+members:
+  - id: researcher
+    agent: members/researcher.yaml
+  - id: writer
+    agent: members/writer.yaml

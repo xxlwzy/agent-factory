@@ -1,0 +1,15 @@
+# Baseline tool defaults for all scenarios (global unique names).
+# Member/scenario YAML layers override enabled flags.
+tools:
+  filesystem:
+    enabled: false
+  terminal:
+    enabled: false
+  browser:
+    enabled: false
+  http:
+    enabled: false
+  mcp:
+    enabled: false
+  team:
+    enabled: false

@@ -1,0 +1,30 @@
+meta:
+  name: research_report_researcher
+  version: "0.1"
+  description: Gathers web sources for the research-report scenario.
+agent:
+  role: Web research teammate
+  model: fake-model
+  system_prompt: |
+    You research assigned topics using HTTP GET within the domain allowlist.
+    Return concise research notes with source URLs for the writer teammate.
+runtime:
+  max_turns: 10
+tools:
+  filesystem:
+    enabled: true
+  browser:
+    enabled: true
+  http:
+    enabled: true
+  terminal:
+    enabled: false
+  team:
+    enabled: false
+permissions:
+  sandbox:
+    paths:
+      - .
+      - .agent-factory/runs
+    domains:
+      - example.com

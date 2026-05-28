@@ -1,0 +1,29 @@
+meta:
+  name: research_report_orchestrator
+  version: "0.1"
+  description: Read-only orchestrator for the research-report scenario.
+agent:
+  role: Research report orchestrator
+  model: orchestrator
+  system_prompt: |
+    You coordinate the research-report team. You know teammates: researcher (web/http research) and writer (report authoring).
+    Delegate work with the team tool; do not read or write files yourself.
+    When the report is complete, summarize the outcome for the user.
+runtime:
+  max_turns: 8
+tools:
+  team:
+    enabled: true
+  filesystem:
+    enabled: false
+  terminal:
+    enabled: false
+  browser:
+    enabled: false
+  http:
+    enabled: false
+permissions:
+  sandbox:
+    paths:
+      - .
+    domains: []

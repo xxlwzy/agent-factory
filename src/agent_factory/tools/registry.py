@@ -8,7 +8,9 @@ from agent_factory.tools.base import ToolAdapter, ToolResult
 from agent_factory.tools.browser import BrowserFetcher, BrowserTool
 from agent_factory.tools.filesystem import FilesystemTool
 from agent_factory.tools.http import HttpFetcher, HttpTool
+from agent_factory.tools.team_delegate import TeamDelegateTool
 from agent_factory.tools.terminal import CommandRunner, TerminalTool
+from agent_factory.team.bus import MessageBus
 
 
 class ToolRegistry:
@@ -40,6 +42,9 @@ def build_default_registry(
     browser_fetcher: BrowserFetcher | None = None,
     terminal_runner: CommandRunner | None = None,
     mcp_handlers: dict[str, McpHandler] | None = None,
+    message_bus: MessageBus | None = None,
+    scenario_id: str = "",
+    delegate_sender: str = "orchestrator",
 ) -> ToolRegistry:
     adapters: dict[str, ToolAdapter] = {
         "filesystem": FilesystemTool(workspace_root=workspace_root),
@@ -49,6 +54,13 @@ def build_default_registry(
     }
     if config.mcp.tools:
         adapters["mcp"] = McpTool(handlers=build_mcp_handlers(config.mcp, mcp_handlers))
+    team_config = config.tools.get("team")
+    if team_config is not None and team_config.enabled:
+        adapters["team"] = TeamDelegateTool(
+            message_bus or MessageBus(),
+            scenario_id=scenario_id,
+            sender=delegate_sender,
+        )
     return ToolRegistry(adapters=adapters, enabled_tools=config.tools)
 
 
